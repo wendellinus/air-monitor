@@ -1,0 +1,33 @@
+system:
+  env: "develop"  # develop / release
+  port: 8080
+
+log:
+  level: "debug"
+  root_dir: "./log"
+  filename: "server.log"
+  show_line: true
+  max_age: 30
+  max_size: 10
+  max_backups: 5
+
+pgsql:
+  path: "127.0.0.1"
+  port: "5432"
+  config: "sslmode=disable TimeZone=Asia/Shanghai"
+  db-name: "go_practice_db" # 请确保你在 Postgres 中手动创建了这个空的数据库！
+  username: "postgres"     # 你的数据库用户名
+  password: "123456" # 你的数据库密码
+  max-idle-conns: 10
+  max-open-conns: 100
+  log-mode: "info"         # 开发环境用 info (打印 SQL)，生产环境用 error
+
+jwt:
+  signing-key: "wertyuisdfghjxcvbnmgsgpsfdojgposdfjgopisfd" # 请一定要改这个，随便乱写一串字符
+  expires-time: "24h" # Token 有效期
+  issuer: "go-practice"
+
+redis:
+  addr: "127.0.0.1:6379"
+  password: "" # 本地通常没有密码
+  db: 0
