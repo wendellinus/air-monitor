@@ -1,0 +1,43 @@
+system:
+  env: "develop" # develop / release
+  port: 8080
+
+log:
+  level: "debug"
+  root_dir: "./log"
+  filename: "server.log"
+  show_line: true
+  max_age: 30
+  max_size: 10
+  max_backups: 5
+
+pgsql:
+  path: "127.0.0.1"
+  port: "5432"
+  config: "sslmode=disable TimeZone=Asia/Shanghai"
+  db-name: "go_practice_db"
+  username: "postgres"
+  password: "your_password" # 修改为你的密码
+  max-idle-conns: 10
+  max-open-conns: 100
+  log-mode: "info"
+
+jwt:
+  signing-key: "your_jwt_signing_key" # 修改为随机字符串
+  expires-time: "24h"
+  issuer: "go-practice"
+
+redis:
+  addr: "127.0.0.1:6379"
+  password: ""
+  db: 0
+
+qweather:
+  key: "" # 如果使用 JWT，这里可以留空
+  public_id: "YOUR_PUBLIC_ID" # 和风天气控制台生成的 Key ID
+  project_id: "YOUR_PROJECT_ID" # 和风天气控制台生成的 Project ID
+  private_key: |
+    -----BEGIN PRIVATE KEY-----
+    YOUR_PRIVATE_KEY_CONTENT_HERE
+    -----END PRIVATE KEY-----
+  host: "https://devapi.qweather.com" # 免费版使用 devapi，商业版使用私有 host
