@@ -5,6 +5,10 @@ import (
 	"go-pratice/pkg/global"
 	"time"
 
+	airModel "go-pratice/internal/module/air/model"
+	cityModel "go-pratice/internal/module/city/model"
+	userModel "go-pratice/internal/module/user/model"
+
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -47,6 +51,17 @@ func InitGorm() *gorm.DB {
 
 	// SetConnMaxLifetime 设置了连接可复用的最大时间
 	sqlDB.SetConnMaxLifetime(time.Hour)
+
+	// 自动迁移 (Auto Migrate)
+	// 这一步非常关键：GORM 会根据 struct 自动创建或更新数据库表结构
+	// 如果表不存在，它会创建；如果字段增加了，它会修改表结构
+	if err := db.AutoMigrate(
+		&cityModel.City{},
+		&airModel.AirQualityLog{},
+		&userModel.User{},
+	); err != nil {
+		panic(fmt.Errorf("数据库迁移失败: %s", err))
+	}
 
 	return db
 }

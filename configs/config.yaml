@@ -1,5 +1,5 @@
 system:
-  env: "develop"  # develop / release
+  env: "develop" # develop / release
   port: 8080
 
 log:
@@ -16,11 +16,11 @@ pgsql:
   port: "5432"
   config: "sslmode=disable TimeZone=Asia/Shanghai"
   db-name: "go_practice_db" # 请确保你在 Postgres 中手动创建了这个空的数据库！
-  username: "postgres"     # 你的数据库用户名
+  username: "postgres" # 你的数据库用户名
   password: "123456" # 你的数据库密码
   max-idle-conns: 10
   max-open-conns: 100
-  log-mode: "info"         # 开发环境用 info (打印 SQL)，生产环境用 error
+  log-mode: "info" # 开发环境用 info (打印 SQL)，生产环境用 error
 
 jwt:
   signing-key: "wertyuisdfghjxcvbnmgsgpsfdojgposdfjgopisfd" # 请一定要改这个，随便乱写一串字符
@@ -31,3 +31,13 @@ redis:
   addr: "127.0.0.1:6379"
   password: "" # 本地通常没有密码
   db: 0
+
+qweather:
+  key: "" # 如果使用 JWT，这里可以留空
+  public_id: "CHGUYCCGQR" # 和风天气控制台生成的 Key ID
+  project_id: "3NKPCUCJRC" # 和风天气控制台生成的 Project ID
+  private_key: |
+    -----BEGIN PRIVATE KEY-----
+    MC4CAQAwBQYDK2VwBCIEIGcsgpG0oZHeZDcPRO6kCYv9d0O+cTuQ1HnaZ9kRf7DL
+    -----END PRIVATE KEY-----
+  host: "https://nf5xmdy8n7.re.qweatherapi.com"

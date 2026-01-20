@@ -1,7 +1,7 @@
 package api
 
 import (
-	"go-pratice/internal/service"
+	"go-pratice/internal/module/user/service"
 	"go-pratice/pkg/common/constant"
 	"go-pratice/pkg/common/response"
 	"go-pratice/pkg/global"

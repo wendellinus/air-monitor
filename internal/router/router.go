@@ -1,40 +1,38 @@
 package router
 
 import (
-	"go-pratice/internal/api"
 	"go-pratice/internal/middleware"
-	"go-pratice/internal/repository"
-	"go-pratice/internal/service"
-	"go-pratice/pkg/global"
+	"go-pratice/internal/module/air"
+	"go-pratice/internal/module/city"
+	"go-pratice/internal/module/user"
+	"go-pratice/internal/module/websocket"
 
 	"github.com/gin-gonic/gin"
 )
 
-// InitRouter 初始化总路由
-func InitRouter() *gin.Engine {
+// NewRouter 初始化总路由
+// 接收所有模块作为参数，只负责路由注册，不负责创建依赖
+func NewRouter(
+	userMod *user.Module,
+	cityMod *city.Module,
+	airMod *air.Module,
+	wsMod *websocket.Module,
+) *gin.Engine {
 	r := gin.Default()
 
-	// 1. 依赖注入 (DI)
-	userRepo := repository.NewUserRepository(global.DB)
-	userService := service.NewUserService(userRepo)
-	userApi := api.NewUserApi(userService)
-	wsApi := api.NewWsApi()
+	// 1. 全局中间件
+	r.Use(middleware.Cors())
 
-	// 2. 初始化子路由
-	userRouter := NewUserRouter(userApi)
-	wsRouter := NewWsRouter(wsApi)
-
-	// 3. 定义根路由组
-	// Group 1: 公开路由 (无需登录)
+	// 2. 路由分组
 	publicGroup := r.Group("/api/v1")
-
-	// Group 2: 私有路由 (需要登录)
 	privateGroup := r.Group("/api/v1")
 	privateGroup.Use(middleware.JWTAuth())
 
-	// 4. 注册路由
-	userRouter.InitUserRoutes(publicGroup, privateGroup)
-	wsRouter.InitWsRoutes(publicGroup)
+	// 3. 注册各模块路由
+	userMod.RegisterRoutes(publicGroup, privateGroup)
+	cityMod.RegisterRoutes(publicGroup, privateGroup)
+	airMod.RegisterRoutes(publicGroup, privateGroup)
+	wsMod.RegisterRoutes(publicGroup)
 
 	return r
 }

@@ -4,9 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"go-pratice/internal/model"
-	"go-pratice/internal/model/dto"
-	"go-pratice/internal/repository"
+
+	"go-pratice/internal/module/user/dto"
+	"go-pratice/internal/module/user/repository"
+	userModel "go-pratice/internal/module/user/model"
 	"go-pratice/pkg/utils"
 
 	"github.com/jinzhu/copier"
@@ -51,7 +52,7 @@ func (s *userService) Register(ctx context.Context, username, password, email st
 	}
 
 	// 3. 构建 User 对象
-	user := &model.User{
+	user := &userModel.User{
 		Username: username,
 		Password: string(hash), // 存密文
 		Email:    email,

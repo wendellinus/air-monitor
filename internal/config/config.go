@@ -8,6 +8,7 @@ type Server struct {
 	Pgsql Pgsql `mapstructure:"pgsql" json:"pgsql" yaml:"pgsql"`
 	JWT   JWT   `mapstructure:"jwt" json:"jwt" yaml:"jwt"`
 	Redis Redis `mapstructure:"redis" json:"redis" yaml:"redis"`
+	QWeather QWeather `mapstructure:"qweather" json:"qweather" yaml:"qweather"`
 }
 
 // System 系统配置
@@ -48,4 +49,12 @@ type Redis struct {
 	Addr     string `mapstructure:"addr" json:"addr" yaml:"addr"`             // Redis 地址 127.0.0.1:6379
 	Password string `mapstructure:"password" json:"password" yaml:"password"` // 密码
 	DB       int    `mapstructure:"db" json:"db" yaml:"db"`                   // 数据库序号，默认 0
+}
+
+type QWeather struct {
+	Key        string `mapstructure:"key" json:"key" yaml:"key"`                      // API Key (Optional if using JWT)
+	PublicID   string `mapstructure:"public_id" json:"public_id" yaml:"public_id"`    // JWT Public ID (Key ID)
+	ProjectID  string `mapstructure:"project_id" json:"project_id" yaml:"project_id"` // Project ID
+	PrivateKey string `mapstructure:"private_key" json:"private_key" yaml:"private_key"` // JWT Private Key (PEM content)
+	Host       string `mapstructure:"host" json:"host" yaml:"host"`                   // API Host
 }
