@@ -21,7 +21,7 @@ func JWTAuth() gin.HandlerFunc {
 		if tokenString == "" {
 			// 这里我们使用 http.StatusUnauthorized (401)，这会让 Axios 进入 .catch()
 			// 或者你可以选择用 response.Result(200, 401, nil, "...", c) 来让前端在 .then 里处理
-			response.Result(http.StatusUnauthorized, response.ERROR, nil, "未登录或非法访问", c)
+			response.Fail(c, http.StatusUnauthorized, "未登录或非法访问")
 			c.Abort()
 			return
 		}

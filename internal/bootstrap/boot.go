@@ -11,53 +11,114 @@ import (
 	"go-pratice/internal/module/websocket"
 	"go-pratice/internal/router"
 	"go-pratice/pkg/global"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
 	"time"
+
+	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 )
 
 // Run 启动应用
 func Run() {
-	// 1. 初始化配置
+	// 1. System Init (Config / Logger / DB / Redis)
+	initSystem()
+
+	// 2. Infra Init (Third-party Clients)
+	qweatherProvider := initInfra()
+
+	// 3. Module Assemble (Business Modules)
+	// 注入 global.LOG.Named("module_name") 以区分日志来源
+	modules := initModules(qweatherProvider)
+
+	// 4. Router Init
+	r := initRouter(modules)
+
+	// 5. Server Start & Graceful Shutdown
+	startServer(r)
+}
+
+// -------------------------------------------------------------------------
+// Internal Helper Functions (Stages)
+// -------------------------------------------------------------------------
+
+func initSystem() {
 	initialize.InitConfig()
-
-	// 2. 初始化日志
 	global.LOG = initialize.InitLogger()
-
-	// 3. 初始化数据库
 	global.DB = initialize.InitGorm()
-
-	// 4. 初始化 Redis
 	global.REDIS = initialize.InitRedis()
+	global.LOG.Info("System initialized")
+}
 
-	// 5. 初始化基础设施 (Infra)
-	qweatherRepo := qweather.NewQWeatherRepo()
+func initInfra() *qweather.Provider {
+	client := qweather.NewClient(qweather.Config{
+		Key:        global.CONF.QWeather.Key,
+		PublicID:   global.CONF.QWeather.PublicID,
+		PrivateKey: global.CONF.QWeather.PrivateKey,
+		ProjectID:  global.CONF.QWeather.ProjectID,
+		Host:       global.CONF.QWeather.Host,
+		Timeout:    time.Duration(global.CONF.QWeather.Timeout) * time.Second,
+	})
+	return qweather.NewProvider(client)
+}
 
-	// 6. 初始化业务模块 (Modules)
-	userMod := user.NewModule(global.DB)
-	cityMod := city.NewModule(global.DB, qweatherRepo)
-	airMod := air.NewModule(global.DB, qweatherRepo)
-	wsMod := websocket.NewModule()
+type Modules struct {
+	User *user.Module
+	City *city.Module
+	Air  *air.Module
+	WS   *websocket.Module
+}
 
-	// 7. 初始化路由 (Router)
-	r := router.NewRouter(userMod, cityMod, airMod, wsMod)
+func initModules(qweatherProvider *qweather.Provider) *Modules {
+	return &Modules{
+		User: user.NewModule(global.DB),
+		City: city.NewModule(global.DB, qweatherProvider),
+		Air:  air.NewModule(global.DB, qweatherProvider),
+		WS:   websocket.NewModule(),
+	}
+}
 
-	// 8. 启动服务 (优雅关闭)
-	addr := fmt.Sprintf(":%d", global.CONF.System.Port)
+func initRouter(m *Modules) *gin.Engine {
+	return router.NewRouter(m.User, m.City, m.Air, m.WS)
+}
+
+func startServer(r *gin.Engine) {
+	host := global.CONF.System.Host
+	port := global.CONF.System.Port
+	addr := fmt.Sprintf("%s:%d", host, port)
+
 	srv := &http.Server{
 		Addr:    addr,
 		Handler: r,
 	}
 
 	go func() {
-		global.LOG.Info(fmt.Sprintf("Server starting on %s", addr))
+		// 获取本机首选出站 IP (Network Address)
+		ip, err := GetOutboundIP()
+		if err != nil {
+			ip = "127.0.0.1"
+		}
+
+		// 如果 host 配置为空或 0.0.0.0，则说明监听所有接口
+		displayHost := host
+		if displayHost == "" || displayHost == "0.0.0.0" || displayHost == ":" {
+			displayHost = "localhost"
+		}
+
+		global.LOG.Info(
+			"server started",
+			zap.String("local", fmt.Sprintf("http://%s:%d", displayHost, port)),
+			zap.String("network", fmt.Sprintf("http://%s:%d", ip, port)),
+		)
+
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			global.LOG.Panic(fmt.Sprintf("Server start failed: %s", err))
+			global.LOG.Panic("Server start failed", zap.Error(err))
 		}
 	}()
 
-	// 等待中断信号以优雅地关闭服务器（设置 5 秒的超时时间）
+	// 等待中断信号以优雅地关闭服务器
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, os.Interrupt)
 	<-quit
@@ -66,7 +127,20 @@ func Run() {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	if err := srv.Shutdown(ctx); err != nil {
-		global.LOG.Fatal(fmt.Sprintf("Server Shutdown: %s", err))
+		global.LOG.Fatal("Server Shutdown", zap.Error(err))
 	}
 	global.LOG.Info("Server exiting")
+}
+
+// GetOutboundIP 获取本机首选出站 IP
+func GetOutboundIP() (string, error) {
+	conn, err := net.Dial("udp", "8.8.8.8:80")
+	if err != nil {
+		return "", err
+	}
+	defer conn.Close()
+
+	localAddr := conn.LocalAddr().(*net.UDPAddr)
+
+	return localAddr.IP.String(), nil
 }

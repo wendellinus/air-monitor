@@ -2,7 +2,7 @@ package api
 
 import (
 	"go-pratice/internal/module/air/service"
-	"net/http"
+	"go-pratice/pkg/common/response"
 
 	"github.com/gin-gonic/gin"
 )
@@ -21,17 +21,44 @@ func NewAirHandler(srv *service.AirService) *AirHandler {
 // @Success 200 {object} model.AirQualityLog
 // @Router /api/v1/air/now [get]
 func (h *AirHandler) GetRealtimeAQI(c *gin.Context) {
-	cityID := c.Query("city_id")
-	if cityID == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "city_id is required"})
+	var req struct {
+		CityID string `form:"city_id" binding:"required"`
+	}
+
+	if err := c.ShouldBindQuery(&req); err != nil {
+		response.Fail(c, response.CodeParamError, "city_id 是必填的")
 		return
 	}
 
-	data, err := h.srv.GetRealtimeAQI(c.Request.Context(), cityID)
+	data, err := h.srv.GetRealtimeAQI(c.Request.Context(), req.CityID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		response.Fail(c, response.CodeThirdParty, err.Error())
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"data": data})
+	response.Success(c, data)
+}
+
+// GetHourlyAQI 获取小时级空气质量预报
+// @Summary 获取小时级空气质量预报
+// @Param city_id query string true "城市ID"
+// @Success 200 {array} model.AirQualityLog
+// @Router /api/v1/air/hourly [get]
+func (h *AirHandler) GetHourlyAQI(c *gin.Context) {
+	var req struct {
+		CityID string `form:"city_id" binding:"required"`
+	}
+
+	if err := c.ShouldBindQuery(&req); err != nil {
+		response.Fail(c, response.CodeParamError, "city_id 是必填的")
+		return
+	}
+
+	data, err := h.srv.GetHourlyAQI(c.Request.Context(), req.CityID)
+	if err != nil {
+		response.Fail(c, response.CodeThirdParty, err.Error())
+		return
+	}
+
+	response.Success(c, data)
 }

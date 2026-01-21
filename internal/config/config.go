@@ -8,12 +8,13 @@ type Server struct {
 	Pgsql Pgsql `mapstructure:"pgsql" json:"pgsql" yaml:"pgsql"`
 	JWT   JWT   `mapstructure:"jwt" json:"jwt" yaml:"jwt"`
 	Redis Redis `mapstructure:"redis" json:"redis" yaml:"redis"`
-	QWeather QWeather `mapstructure:"qweather" json:"qweather" yaml:"qweather"`
+	QWeather QWeatherConfig `mapstructure:"qweather" json:"qweather" yaml:"qweather"`
 }
 
 // System 系统配置
 type System struct {
 	Env  string `mapstructure:"env" json:"env" yaml:"env"`    // 环境值: public, dev
+	Host string `mapstructure:"host" json:"host" yaml:"host"` // 主机地址，如 localhost 或 0.0.0.0
 	Port int    `mapstructure:"port" json:"port" yaml:"port"` // 端口
 }
 
@@ -51,10 +52,13 @@ type Redis struct {
 	DB       int    `mapstructure:"db" json:"db" yaml:"db"`                   // 数据库序号，默认 0
 }
 
-type QWeather struct {
+type QWeatherConfig struct {
+	Enable     bool   `mapstructure:"enable" yaml:"enable"`
 	Key        string `mapstructure:"key" json:"key" yaml:"key"`                      // API Key (Optional if using JWT)
 	PublicID   string `mapstructure:"public_id" json:"public_id" yaml:"public_id"`    // JWT Public ID (Key ID)
 	ProjectID  string `mapstructure:"project_id" json:"project_id" yaml:"project_id"` // Project ID
 	PrivateKey string `mapstructure:"private_key" json:"private_key" yaml:"private_key"` // JWT Private Key (PEM content)
 	Host       string `mapstructure:"host" json:"host" yaml:"host"`                   // API Host
+	Timeout    int    `mapstructure:"timeout" yaml:"timeout"`                         // Timeout in seconds
+	Debug      bool   `mapstructure:"debug" yaml:"debug"`                             // Debug mode
 }

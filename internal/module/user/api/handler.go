@@ -41,7 +41,7 @@ type RegisterRequest struct {
 func (a *UserApi) Register(c *gin.Context) {
 	var req RegisterRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.FailWithMessage("参数校验失败: "+err.Error(), c)
+		response.Fail(c, 400, "参数校验失败: "+err.Error())
 		return
 	}
 
@@ -49,11 +49,11 @@ func (a *UserApi) Register(c *gin.Context) {
 	user, err := a.userService.Register(c.Request.Context(), req.Username, req.Password, req.Email)
 	if err != nil {
 		global.LOG.Error("注册失败", zap.Error(err))
-		response.FailWithMessage(err.Error(), c)
+		response.Fail(c, 500, err.Error())
 		return
 	}
 
-	response.OkWithDetailed(user, "注册成功", c)
+	response.Success(c, user)
 }
 
 // LoginRequest 登录参数
@@ -66,7 +66,7 @@ type LoginRequest struct {
 func (a *UserApi) Login(c *gin.Context) {
 	var req LoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.FailWithMessage("参数错误", c)
+		response.Fail(c, 400, "参数错误")
 		return
 	}
 
@@ -74,11 +74,11 @@ func (a *UserApi) Login(c *gin.Context) {
 	loginResp, err := a.userService.Login(c.Request.Context(), req.Username, req.Password)
 	if err != nil {
 		global.LOG.Error("登录失败", zap.Error(err))
-		response.FailWithMessage("用户名或密码错误", c)
+		response.Fail(c, 401, "用户名或密码错误")
 		return
 	}
 
-	response.OkWithDetailed(loginResp, "登录成功", c)
+	response.Success(c, loginResp)
 }
 
 // GetUserInfo 获取当前登录用户信息
@@ -86,17 +86,17 @@ func (a *UserApi) GetUserInfo(c *gin.Context) {
 	userID, _ := c.Get(string(constant.ContextKeyUserID))
 	username, _ := c.Get(string(constant.ContextKeyUsername))
 
-	response.OkWithData(gin.H{
+	response.Success(c, gin.H{
 		"id":       userID,
 		"username": username,
-	}, c)
+	})
 }
 
 // Logout 退出登录
 func (a *UserApi) Logout(c *gin.Context) {
 	claimsInterface, exists := c.Get(string(constant.ContextKeyClaims))
 	if !exists {
-		response.OkWithMessage("已登出", c)
+		response.Success(c, "已登出")
 		return
 	}
 	claims := claimsInterface.(*utils.CustomClaims)
@@ -114,12 +114,12 @@ func (a *UserApi) Logout(c *gin.Context) {
 
 		if err != nil {
 			global.LOG.Error("Redis 设置黑名单失败", zap.Error(err))
-			response.FailWithMessage("登出失败", c)
+			response.Fail(c, 500, "登出失败")
 			return
 		}
 	}
 
-	response.OkWithMessage("登出成功", c)
+	response.Success(c, "登出成功")
 }
 
 type PageRequest struct {
@@ -133,18 +133,18 @@ func (a *UserApi) GetUserList(c *gin.Context) {
 	var req PageRequest
 	// ShouldBindQuery 用于绑定 URL 查询参数 (?page=1&pageSize=10)
 	if err := c.ShouldBindQuery(&req); err != nil {
-		response.FailWithMessage("参数错误", c)
+		response.Fail(c, 400, "参数错误")
 		return
 	}
 	// 调用 Service
 	pageResult, err := a.userService.GetUserList(c.Request.Context(), req.Page, req.PageSize)
 	if err != nil {
 		global.LOG.Error("获取用户列表失败", zap.Error(err))
-		response.FailWithMessage("获取列表失败", c)
+		response.Fail(c, 500, "获取列表失败")
 		return
 	}
 	// 返回成功响应
-	response.OkWithDetailed(pageResult, "获取成功", c)
+	response.Success(c, pageResult)
 }
 
 type SearchUserRequest struct {
@@ -156,16 +156,16 @@ type SearchUserRequest struct {
 func (a *UserApi) SearchUser(c *gin.Context) {
 	var req SearchUserRequest
 	if err := c.ShouldBindQuery(&req); err != nil {
-		response.FailWithMessage("参数错误", c)
+		response.Fail(c, 400, "参数错误")
 		return
 	}
 
 	result, err := a.userService.SearchUsers(c.Request.Context(), req.Keywork, req.Page, req.PageSize)
 	if err != nil {
 		global.LOG.Error("搜索用户列表失败", zap.Error(err))
-		response.FailWithMessage("搜索用户失败", c)
+		response.Fail(c, 500, "搜索用户失败")
 		return
 	}
 
-	response.OkWithDetailed(result, "获取成功", c)
+	response.Success(c, result)
 }

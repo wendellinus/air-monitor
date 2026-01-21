@@ -6,252 +6,297 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
+	"strconv"
+	"sync"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
-	airModel "go-pratice/internal/module/air/model"
-	cityModel "go-pratice/internal/module/city/model"
-	"go-pratice/pkg/global"
 )
 
-type QWeatherRepo struct {
-	client     *http.Client
-	key        string
-	publicID   string
-	projectID  string
-	privateKey string
+const (
+	// 默认超时时间
+	defaultTimeout = 10 * time.Second
+	// Token 提前刷新时间 (过期前 1 分钟刷新)
+	tokenRefreshWindow = 1 * time.Minute
+	// JWT 有效期
+	tokenDuration = 5 * time.Minute
+)
+
+// API Paths
+const (
+	pathGeoLookup   = "/geo/v2/city/lookup"
+	pathGeoTop      = "/geo/v2/city/top"
+	pathAirCurrent  = "/airquality/v1/current/%s/%s" // lat, lon
+	pathAirHourly   = "/airquality/v1/hourly/%s/%s"  // lat, lon
+)
+
+// Config SDK 配置
+// 解耦设计：不再依赖 internal/config，由外部传入必要参数
+type Config struct {
+	Key        string        // API Key (降级使用)
+	PublicID   string        // JWT Public ID
+	PrivateKey string        // JWT Private Key (PEM)
+	ProjectID  string        // JWT Project ID
+	Host       string        // API Host (e.g. https://devapi.qweather.com)
+	Timeout    time.Duration // 请求超时
 }
 
-func NewQWeatherRepo() *QWeatherRepo {
-	return &QWeatherRepo{
-		client: &http.Client{
-			Timeout: 10 * time.Second,
+// Client 和风天气客户端
+type Client struct {
+	cfg        Config
+	httpClient *http.Client
+
+	// Token 缓存机制
+	tokenMu  sync.RWMutex
+	token    string
+	tokenExp time.Time
+}
+
+// NewClient 初始化客户端
+func NewClient(cfg Config) *Client {
+	if cfg.Timeout <= 0 {
+		cfg.Timeout = defaultTimeout
+	}
+	return &Client{
+		cfg: cfg,
+		httpClient: &http.Client{
+			Timeout: cfg.Timeout,
 		},
-		key:        global.CONF.QWeather.Key,
-		publicID:   global.CONF.QWeather.PublicID,
-		projectID:  global.CONF.QWeather.ProjectID,
-		privateKey: global.CONF.QWeather.PrivateKey,
 	}
 }
 
-// getAuthToken 生成认证 Token (优先使用 JWT)
-func (r *QWeatherRepo) getAuthToken() (string, error) {
-	// 1. 如果配置了 JWT，优先生成 JWT
-	if r.publicID != "" && r.privateKey != "" {
-		block, _ := pem.Decode([]byte(r.privateKey))
-		if block == nil {
-			return "", fmt.Errorf("failed to parse private key PEM")
-		}
+// GetGeo 获取城市 Geo 信息
+func (c *Client) GetGeo(ctx context.Context, keyword string) (*GeoDTO, error) {
+	params := url.Values{}
+	params.Set("location", keyword)
 
-		// 解析 Ed25519 私钥 (PKCS#8 格式)
-		privKey, err := x509.ParsePKCS8PrivateKey(block.Bytes)
-		if err != nil {
-			return "", fmt.Errorf("failed to parse private key: %w", err)
-		}
-
-		now := time.Now()
-		claims := jwt.MapClaims{
-			"sub": r.projectID,
-			"iss": r.publicID,
-			"iat": now.Unix(),
-			"exp": now.Add(5 * time.Minute).Unix(), // 5分钟有效期
-		}
-
-		token := jwt.NewWithClaims(jwt.SigningMethodEdDSA, claims)
-		token.Header["kid"] = r.publicID // 关键：kid 必须在 Header 中
-		signedToken, err := token.SignedString(privKey)
-		if err != nil {
-			return "", fmt.Errorf("failed to sign token: %w", err)
-		}
-		return "Bearer " + signedToken, nil
+	var result GeoDTO
+	if err := c.request(ctx, http.MethodGet, pathGeoLookup, params, &result); err != nil {
+		return nil, err
 	}
 
-	// 2. 降级使用 API Key
-	if r.key != "" {
-		return r.key, nil // 注意：API Key 方式在 Header 中不需要 Bearer 前缀，而是直接作为 Value，或者 X-QW-Api-Key
+	// 业务层错误检查 (Geo API 返回 code 字段)
+	if result.Code != "200" {
+		return nil, fmt.Errorf("和风天气 Geo API 错误: code=%s", result.Code)
 	}
 
-	return "", fmt.Errorf("no valid credentials found (JWT or API Key)")
+	return &result, nil
 }
 
-// doRequest 发送请求并处理 Gzip 解压
-func (r *QWeatherRepo) doRequest(req *http.Request) ([]byte, error) {
-	// 模拟浏览器行为，避免被拦截
+// GetAQI 获取实时空气质量
+func (c *Client) GetAQI(ctx context.Context, lat, lon string) (*AQIDTO, error) {
+	// 保持原有 Path 逻辑 (注意：此路径非和风标准公开 API，可能是定制或代理)
+	path := fmt.Sprintf(pathAirCurrent, lat, lon)
+
+	var result AQIDTO
+	if err := c.request(ctx, http.MethodGet, path, nil, &result); err != nil {
+		return nil, err
+	}
+
+	return &result, nil
+}
+
+// GetHourlyAQI 获取小时级空气质量
+func (c *Client) GetHourlyAQI(ctx context.Context, lat, lon string) (*HourlyAQIDTO, error) {
+	path := fmt.Sprintf(pathAirHourly, lat, lon)
+
+	var result HourlyAQIDTO
+	if err := c.request(ctx, http.MethodGet, path, nil, &result); err != nil {
+		return nil, err
+	}
+
+	return &result, nil
+}
+
+// GetTopCities 获取热门城市
+func (c *Client) GetTopCities(ctx context.Context, rangeType string, number int) (*TopCityDTO, error) {
+	params := url.Values{}
+	params.Set("range", rangeType)
+	params.Set("number", strconv.Itoa(number))
+
+	var result TopCityDTO
+	if err := c.request(ctx, http.MethodGet, pathGeoTop, params, &result); err != nil {
+		return nil, err
+	}
+
+	if result.Code != "200" {
+		return nil, fmt.Errorf("和风天气热门城市 API 错误: code=%s", result.Code)
+	}
+
+	return &result, nil
+}
+
+// request 统一请求处理：构建 URL -> 获取 Token -> 发送请求 -> 解析响应
+func (c *Client) request(ctx context.Context, method, path string, params url.Values, dest interface{}) error {
+	if c.cfg.Host == "" {
+		return errors.New("未配置和风天气 API Host")
+	}
+
+	// 1. 构建 URL
+	fullURL := c.cfg.Host + path
+	if len(params) > 0 {
+		fullURL += "?" + params.Encode()
+	}
+
+	req, err := http.NewRequestWithContext(ctx, method, fullURL, nil)
+	if err != nil {
+		return fmt.Errorf("创建请求失败: %w", err)
+	}
+
+	// 2. 注入认证 Token
+	token, err := c.ensureToken()
+	if err != nil {
+		return err
+	}
+	c.setAuthHeader(req, token)
+
+	// 3. 执行 HTTP 请求
+	body, err := c.do(req)
+	if err != nil {
+		return err
+	}
+
+	// 4. 解析响应
+	if err := json.Unmarshal(body, dest); err != nil {
+		return fmt.Errorf("解析响应失败: %w, body: %s", err, string(body))
+	}
+
+	return nil
+}
+
+// do 执行底层 HTTP 请求，处理 Header 和 Gzip
+func (c *Client) do(req *http.Request) ([]byte, error) {
+	// 模拟浏览器指纹，防止被某些 WAF 拦截
 	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
 	req.Header.Set("Accept-Encoding", "gzip, deflate, br")
 
-	resp, err := r.client.Do(req)
+	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("HTTP 请求失败: %w", err)
 	}
 	defer resp.Body.Close()
 
+	// 处理 Gzip
 	var reader io.ReadCloser
 	switch resp.Header.Get("Content-Encoding") {
 	case "gzip":
-		reader, err = gzip.NewReader(resp.Body)
-		if err != nil {
-			return nil, fmt.Errorf("gzip decode failed: %w", err)
+		if r, err := gzip.NewReader(resp.Body); err == nil {
+			reader = r
+			defer reader.Close()
+		} else {
+			return nil, fmt.Errorf("Gzip 解压失败: %w", err)
 		}
-		defer reader.Close()
 	default:
 		reader = resp.Body
 	}
 
 	body, err := io.ReadAll(reader)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("读取响应体失败: %w", err)
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("qweather api failed: %d, body: %s", resp.StatusCode, string(body))
+		return nil, fmt.Errorf("API HTTP 错误: status=%d body=%s", resp.StatusCode, string(body))
 	}
 
 	return body, nil
 }
 
-// FetchGeo 获取城市 Geo 信息
-func (r *QWeatherRepo) FetchGeo(ctx context.Context, keyword string) ([]cityModel.City, error) {
-	// 使用配置文件中的 Host
-	host := global.CONF.QWeather.Host
-	if host == "" {
-		host = "https://geoapi.qweather.com" // 默认值
+// ensureToken 获取有效 Token (支持缓存和自动刷新)
+func (c *Client) ensureToken() (string, error) {
+	// 1. 优先检查缓存
+	c.tokenMu.RLock()
+	if c.token != "" && time.Now().Add(tokenRefreshWindow).Before(c.tokenExp) {
+		defer c.tokenMu.RUnlock()
+		return c.token, nil
 	}
-	url := fmt.Sprintf("%s/geo/v2/city/lookup?location=%s", host, keyword)
-	fmt.Println("DEBUG URL:", url)
+	c.tokenMu.RUnlock()
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
-	if err != nil {
-		return nil, err
+	// 2. 缓存失效，加写锁重新生成
+	c.tokenMu.Lock()
+	defer c.tokenMu.Unlock()
+
+	// 双重检查 (防止并发穿透)
+	if c.token != "" && time.Now().Add(tokenRefreshWindow).Before(c.tokenExp) {
+		return c.token, nil
 	}
 
-	// 设置认证 Header
-	token, err := r.getAuthToken()
+	// 生成新 Token
+	token, err := c.generateToken()
 	if err != nil {
-		return nil, err
+		return "", err
 	}
-	
-	// 判断是 JWT 还是 API Key
-	if len(token) > 7 && token[:7] == "Bearer " {
-		req.Header.Set("Authorization", token)
+
+	// 更新缓存
+	c.token = token
+	// 如果是 JWT，设置过期时间；如果是 API Key，设置较长过期时间或不设置
+	if c.isJWTMode() {
+		c.tokenExp = time.Now().Add(tokenDuration)
 	} else {
-		req.Header.Set("X-QW-Api-Key", token)
+		c.tokenExp = time.Now().Add(24 * time.Hour) // API Key 长期有效，但也定期刷新一下无妨
 	}
 
-	body, err := r.doRequest(req)
-	if err != nil {
-		return nil, err
-	}
-
-	var result QWeatherGeoResponse
-	if err := json.Unmarshal(body, &result); err != nil {
-		return nil, fmt.Errorf("unmarshal failed: %w, body: %s", err, string(body))
-	}
-
-	if result.Code != "200" {
-		return nil, fmt.Errorf("qweather api error code: %s, body: %s", result.Code, string(body))
-	}
-
-	var cities []cityModel.City
-	for _, item := range result.Location {
-		cities = append(cities, cityModel.City{
-			CityID:  item.ID,
-			Name:    item.Name,
-			Lat:     item.Lat,
-			Lon:     item.Lon,
-			Adm2:    item.Adm2,
-			Adm1:    item.Adm1,
-			Country: item.Country,
-		})
-	}
-	return cities, nil
+	return c.token, nil
 }
 
-// FetchAQI 获取实时空气质量
-func (r *QWeatherRepo) FetchAQI(ctx context.Context, lat, lon string) (*airModel.AirQualityLog, error) {
-	// 使用配置文件中的 Host
-	host := global.CONF.QWeather.Host
-	if host == "" {
-		host = "https://devapi.qweather.com" // 默认值
+// generateToken 生成 Token 核心逻辑
+func (c *Client) generateToken() (string, error) {
+	// 模式 A: JWT (优先)
+	if c.isJWTMode() {
+		return c.signJWT()
 	}
-	// 新版 API 路径: /airquality/v1/current/{latitude}/{longitude}
-	url := fmt.Sprintf("%s/airquality/v1/current/%s/%s", host, lat, lon)
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	// 模式 B: API Key
+	if c.cfg.Key != "" {
+		return c.cfg.Key, nil
+	}
+
+	return "", errors.New("未配置有效凭证 (JWT 或 API Key)")
+}
+
+func (c *Client) isJWTMode() bool {
+	return c.cfg.PublicID != "" && c.cfg.PrivateKey != ""
+}
+
+func (c *Client) signJWT() (string, error) {
+	block, _ := pem.Decode([]byte(c.cfg.PrivateKey))
+	if block == nil {
+		return "", errors.New("解析私钥 PEM 失败")
+	}
+
+	privKey, err := x509.ParsePKCS8PrivateKey(block.Bytes)
 	if err != nil {
-		return nil, err
+		return "", fmt.Errorf("解析私钥失败: %w", err)
 	}
 
-	// 设置认证 Header
-	token, err := r.getAuthToken()
+	now := time.Now()
+	claims := jwt.MapClaims{
+		"sub": c.cfg.ProjectID,
+		"iss": c.cfg.PublicID,
+		"iat": now.Unix(),
+		"exp": now.Add(tokenDuration).Unix(),
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodEdDSA, claims)
+	token.Header["kid"] = c.cfg.PublicID
+
+	signed, err := token.SignedString(privKey)
 	if err != nil {
-		return nil, err
+		return "", fmt.Errorf("签名 JWT 失败: %w", err)
 	}
 
+	return "Bearer " + signed, nil
+}
+
+func (c *Client) setAuthHeader(req *http.Request, token string) {
 	if len(token) > 7 && token[:7] == "Bearer " {
 		req.Header.Set("Authorization", token)
 	} else {
 		req.Header.Set("X-QW-Api-Key", token)
 	}
-
-	body, err := r.doRequest(req)
-	if err != nil {
-		return nil, err
-	}
-
-	var result QWeatherAQIResponse
-	if err := json.Unmarshal(body, &result); err != nil {
-		return nil, fmt.Errorf("unmarshal failed: %w, body: %s", err, string(body))
-	}
-
-	// 解析数据
-	var aqi int
-	var level, category, primary string
-	var pm10, pm2p5, no2, so2, co, o3 float64
-
-	// 优先使用 local AQI (通常是第一个，或者根据 code 判断)
-	// 这里简单取第一个 index
-	if len(result.Indexes) > 0 {
-		idx := result.Indexes[0]
-		aqi = int(idx.Aqi)
-		level = idx.Level
-		category = idx.Category
-		primary = idx.PrimaryPollutant.Name
-	}
-
-	for _, p := range result.Pollutants {
-		val := p.Concentration.Value
-		switch p.Code {
-		case "pm10":
-			pm10 = val
-		case "pm2p5":
-			pm2p5 = val
-		case "no2":
-			no2 = val
-		case "so2":
-			so2 = val
-		case "co":
-			co = val
-		case "o3":
-			o3 = val
-		}
-	}
-
-	return &airModel.AirQualityLog{
-		// CityID:   cityID, // 这里的 CityID 需要在上层填充
-		PubTime:  time.Now(), // API 返回中没有明确的时间，使用当前时间
-		AQI:      aqi,
-		Level:    level,
-		Category: category,
-		Primary:  primary,
-		PM10:     pm10,
-		PM2p5:    pm2p5,
-		NO2:      no2,
-		SO2:      so2,
-		CO:       co,
-		O3:       o3,
-	}, nil
 }

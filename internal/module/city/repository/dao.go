@@ -5,7 +5,6 @@ import (
 	"go-pratice/internal/module/city/model"
 	"go-pratice/internal/module/city/service"
 
-
 	"gorm.io/gorm"
 )
 
