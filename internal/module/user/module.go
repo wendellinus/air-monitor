@@ -34,4 +34,5 @@ func (m *Module) RegisterRoutes(public, private *gin.RouterGroup) {
 	private.GET("/user/me", m.handler.GetUserInfo)
 	private.POST("/logout", m.handler.Logout)
 	private.GET("/users", m.handler.GetUserInfo)
+	private.GET("/user/token-info", m.handler.GetTokenInfo) // 调试接口：查看token信息
 }

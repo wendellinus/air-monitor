@@ -5,6 +5,22 @@ type QWeatherResponse struct {
 	Code string `json:"code"` // 和风的状态码，如 "200"
 }
 
+// API Types
+const (
+	APITypeGeo              = "Geo"
+	APITypeWeather          = "Weather"
+	APITypeMinutelyForecast = "MinutelyForecast"
+	APITypeWeatherIndices   = "WeatherIndices"
+	APITypeWeatherAlert     = "WeatherAlert"
+	APITypeAirQuality       = "AirQuality"
+	APITypeTimeMachine      = "TimeMachine"
+	APITypeStorm            = "Storm"
+	APITypeAstronomy        = "Astronomy"
+	APITypeSolarIrradiation = "SolarIrradiation"
+	APITypeOcean            = "Ocean"
+	APITypeConsole          = "Console"
+)
+
 type CityDTO struct {
 	Name      string `json:"name"`
 	ID        string `json:"id"`
@@ -42,18 +58,18 @@ type AQIDTO struct {
 		Name             string  `json:"name"`
 		Aqi              float64 `json:"aqi"`
 		AqiDisplay       string  `json:"aqiDisplay"`
-		Level            string  `json:"level"`
-		Category         string  `json:"category"`
+		Level            *string `json:"level"`
+		Category         *string `json:"category"`
 		PrimaryPollutant struct {
-			Code     string `json:"code"`
-			Name     string `json:"name"`
-			FullName string `json:"fullName"`
+			Code     *string `json:"code"`
+			Name     *string `json:"name"`
+			FullName *string `json:"fullName"`
 		} `json:"primaryPollutant"`
 	} `json:"indexes"`
 	Pollutants []struct {
-		Code          string `json:"code"`
-		Name          string `json:"name"`
-		FullName      string `json:"fullName"`
+		Code          *string `json:"code"`
+		Name          *string `json:"name"`
+		FullName      *string `json:"fullName"`
 		Concentration struct {
 			Value float64 `json:"value"`
 			Unit  string  `json:"unit"`
@@ -78,22 +94,22 @@ type HourlyItem struct {
 
 // AQIIndex 对应 "indexes" 数组中的每一项 (如 QAQI, GB-DEFRA)
 type AQIIndex struct {
-	Code             string           `json:"code"`
-	Name             string           `json:"name"`
-	AQI              float64          `json:"aqi"`
-	AQIDisplay       string           `json:"aqiDisplay"`
-	Level            string           `json:"level"`
-	Category         string           `json:"category"`
-	Color            Color            `json:"color"`
-	PrimaryPollutant PrimaryPollutant `json:"primaryPollutant"`
-	Health           Health           `json:"health"`
+	Code             string            `json:"code"`
+	Name             string            `json:"name"`
+	AQI              float64           `json:"aqi"`
+	AQIDisplay       string            `json:"aqiDisplay"`
+	Level            *string           `json:"level"`
+	Category         *string           `json:"category"`
+	Color            Color             `json:"color"`
+	PrimaryPollutant *PrimaryPollutant `json:"primaryPollutant"`
+	Health           *Health           `json:"health"`
 }
 
 // Pollutant 对应 "pollutants" 数组中的每一项 (如 PM2.5, O3)
 type Pollutant struct {
-	Code          string        `json:"code"`
-	Name          string        `json:"name"`
-	FullName      string        `json:"fullName"`
+	Code          *string       `json:"code"`
+	Name          *string       `json:"name"`
+	FullName      *string       `json:"fullName"`
 	Concentration Concentration `json:"concentration"`
 	SubIndexes    []SubIndex    `json:"subIndexes"`
 }
@@ -107,19 +123,19 @@ type Color struct {
 }
 
 type PrimaryPollutant struct {
-	Code     string `json:"code"`
-	Name     string `json:"name"`
-	FullName string `json:"fullName"`
+	Code     *string `json:"code"`
+	Name     *string `json:"name"`
+	FullName *string `json:"fullName"`
 }
 
 type Health struct {
-	Effect string       `json:"effect"`
-	Advice HealthAdvice `json:"advice"`
+	Effect *string       `json:"effect"`
+	Advice *HealthAdvice `json:"advice"`
 }
 
 type HealthAdvice struct {
-	GeneralPopulation   string `json:"generalPopulation"`
-	SensitivePopulation string `json:"sensitivePopulation"`
+	GeneralPopulation   *string `json:"generalPopulation"`
+	SensitivePopulation *string `json:"sensitivePopulation"`
 }
 
 type Concentration struct {
@@ -128,7 +144,100 @@ type Concentration struct {
 }
 
 type SubIndex struct {
-	Code       string  `json:"code"`
-	AQI        float64 `json:"aqi"`
-	AQIDisplay string  `json:"aqiDisplay"`
+	Code       *string  `json:"code"`
+	AQI        *float64 `json:"aqi"`
+	AQIDisplay string   `json:"aqiDisplay"`
+}
+
+type DailyAQIDTO struct {
+	Metadata Metadata `json:"metadata"`
+	Days     []Days   `json:"days"`
+}
+
+type Days struct {
+	ForecastStartTime string      `json:"forecastStartTime"`
+	ForecastEndTime   string      `json:"forecastEndTime"`
+	Indexes           []AQIIndex  `json:"indexes"`
+	Pollutants        []Pollutant `json:"pollutants"`
+}
+
+type HistoricalDTO struct {
+	FxLink    string      `json:"fxLink"`
+	AirHourly []AirHourly `json:"airHourly"`
+	Refer     []Refer     `json:"refer"`
+}
+
+type AirHourly struct {
+	PubTime  string  `json:"pubTime"`
+	Aqi      string  `json:"aqi"`
+	Level    string  `json:"level"`
+	Category string  `json:"category"`
+	Primary  string  `json:"primary"`
+	Pm10     float32 `json:"pm10"`
+	Pm2p5    float32 `json:"pm2p5"`
+	No2      float32 `json:"no2"`
+	So2      float32 `json:"so2"`
+	Co       float32 `json:"co"`
+	O3       float32 `json:"o3"`
+}
+
+type Refer struct {
+	Sources string `json:"sources"`
+	License string `json:"license"`
+}
+
+type StatsDTO struct {
+	Metadata Metadata `json:"metadata"`
+	AsOf     string   `json:"asOf"`
+	Success  []Result `json:"success"`
+	Errors   []Result `json:"errors"`
+}
+
+type Result struct {
+	Api   string `json:"api"`
+	Hours []int  `json:"hours"`
+}
+
+type SummaryDTO struct {
+	Metadata               Metadata                 `json:"metadata"`
+	AsOf                   string                   `json:"asOf"`
+	Currency               string                   `json:"currency"`
+	Balance                float32                  `json:"balance"`
+	AccruedCharges         AccruedCharges           `json:"accruedCharges"`
+	PendingBills           []PendingBills           `json:"pendingBills"`
+	AvailableSavingsPlans  []AvailableSavingsPlans  `json:"availableSavingsPlans"`
+	AvailableResourcePlans []AvailableResourcePlans `json:"availableResourcePlans"`
+}
+
+type AccruedCharges struct {
+	PreviousDay   float32 `json:"previousDay"`
+	ThisMonth     float32 `json:"thisMonth"`
+	SinceLastBill float64 `json:"sinceLastBill"`
+}
+
+type PendingBills struct {
+	Number    string  `json:"number"`
+	Date      string  `json:"date"`
+	Type      string  `json:"type"`
+	Status    string  `json:"status"`
+	Amount    float32 `json:"amount"`
+	AmountDue float32 `json:"amountDue"`
+	DueDate   string  `json:"dueDate"`
+}
+
+type AvailableSavingsPlans struct {
+	BillNumber    string  `json:"billNumber"`
+	Status        string  `json:"status"`
+	Term          string  `json:"term"`
+	Commitments   float64 `json:"commitments"`
+	Utilized      float64 `json:"utilized"`
+	EffectiveTime string  `json:"effectiveTime"`
+}
+
+type AvailableResourcePlans struct {
+	BillNumber    string `json:"billNumber"`
+	Status        string `json:"status"`
+	Requests      int    `json:"requests"`
+	Utilized      int    `json:"utilized"`
+	EffectiveTime string `json:"effectiveTime"`
 }

@@ -62,3 +62,22 @@ func (h *AirHandler) GetHourlyAQI(c *gin.Context) {
 
 	response.Success(c, data)
 }
+
+func (h *AirHandler) GetDailyAQI(c *gin.Context) {
+	var req struct {
+		CityID string `form:"city_id" binding:"required"`
+	}
+
+	if err := c.ShouldBindQuery(&req); err != nil {
+		response.Fail(c, response.CodeParamError, "city_id 是必填的")
+		return
+	}
+
+	data, err := h.srv.GetDailyAQI(c.Request.Context(), req.CityID)
+	if err != nil {
+		response.Fail(c, response.CodeThirdParty, err.Error())
+		return
+	}
+
+	response.Success(c, data)
+}

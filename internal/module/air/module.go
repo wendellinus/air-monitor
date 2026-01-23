@@ -29,5 +29,6 @@ func (m *Module) RegisterRoutes(public, private *gin.RouterGroup) {
 	{
 		airGroup.GET("/now", m.handler.GetRealtimeAQI)
 		airGroup.GET("/hourly", m.handler.GetHourlyAQI)
+		airGroup.GET("/daily", m.handler.GetDailyAQI)
 	}
 }

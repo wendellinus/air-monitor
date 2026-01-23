@@ -101,7 +101,12 @@ func (a *UserApi) Logout(c *gin.Context) {
 	}
 	claims := claimsInterface.(*utils.CustomClaims)
 
-	tokenString := c.GetHeader("Authorization")[7:]
+	authHeader := c.GetHeader("Authorization")
+	tokenString, err := utils.ExtractBearerToken(authHeader)
+	if err != nil {
+		response.Fail(c, 400, "Token 格式错误")
+		return
+	}
 
 	now := time.Now()
 	expTime := claims.ExpiresAt.Time
@@ -168,4 +173,47 @@ func (a *UserApi) SearchUser(c *gin.Context) {
 	}
 
 	response.Success(c, result)
+}
+
+// GetTokenInfo 获取当前请求的Token信息（调试用）
+// 用于查看token的内容，包括payload、过期时间等
+func (a *UserApi) GetTokenInfo(c *gin.Context) {
+	authHeader := c.GetHeader("Authorization")
+	if authHeader == "" {
+		response.Fail(c, 400, "未提供Authorization头部")
+		return
+	}
+
+	tokenString, err := utils.ExtractBearerToken(authHeader)
+	if err != nil {
+		response.Fail(c, 400, "Token格式错误: "+err.Error())
+		return
+	}
+
+	// 解析token内容（不验证签名，仅查看）
+	tokenInfo, err := utils.DecodeTokenWithoutVerification(tokenString)
+	if err != nil {
+		response.Fail(c, 400, "解析token失败: "+err.Error())
+		return
+	}
+
+	// 尝试验证token（验证签名）
+	claims, parseErr := utils.ParseToken(tokenString)
+	if parseErr != nil {
+		tokenInfo["valid"] = false
+		tokenInfo["parseError"] = parseErr.Error()
+	} else {
+		tokenInfo["valid"] = true
+		tokenInfo["parsedClaims"] = gin.H{
+			"userId":   claims.UserID,
+			"username": claims.Username,
+			"expiresAt": claims.ExpiresAt.Time.Format(time.RFC3339),
+			"issuer":   claims.Issuer,
+		}
+	}
+
+	response.Success(c, gin.H{
+		"token":     tokenString,
+		"tokenInfo": tokenInfo,
+	})
 }

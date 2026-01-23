@@ -29,10 +29,14 @@ const (
 
 // API Paths
 const (
-	pathGeoLookup   = "/geo/v2/city/lookup"
-	pathGeoTop      = "/geo/v2/city/top"
-	pathAirCurrent  = "/airquality/v1/current/%s/%s" // lat, lon
-	pathAirHourly   = "/airquality/v1/hourly/%s/%s"  // lat, lon
+	pathGeoLookup  = "/geo/v2/city/lookup"
+	pathGeoTop     = "/geo/v2/city/top"
+	pathAirCurrent = "/airquality/v1/current/%s/%s" // lat, lon
+	pathAirHourly  = "/airquality/v1/hourly/%s/%s"  // lat, lon
+	pathDaily      = "/airquality/v1/daily/%s/%s"   // lat, lon
+	pathHistorical = "/v7/historical/air"           // lat, lon
+	pathSummary    = "/finance/v1/summary"
+	pathStats      = "/metrics/v1/stats"
 )
 
 // Config SDK 配置
@@ -106,6 +110,54 @@ func (c *Client) GetHourlyAQI(ctx context.Context, lat, lon string) (*HourlyAQID
 	path := fmt.Sprintf(pathAirHourly, lat, lon)
 
 	var result HourlyAQIDTO
+	if err := c.request(ctx, http.MethodGet, path, nil, &result); err != nil {
+		return nil, err
+	}
+
+	return &result, nil
+}
+
+// 获取空气质量每日预报
+func (c *Client) GetDailyAQI(ctx context.Context, lat, lon string) (*DailyAQIDTO, error) {
+	path := fmt.Sprintf(pathDaily, lat, lon)
+
+	var result DailyAQIDTO
+	if err := c.request(ctx, http.MethodGet, path, nil, &result); err != nil {
+		return nil, err
+	}
+
+	return &result, nil
+}
+
+// 获取历史空气质量
+func (c *Client) GetHistorical(ctx context.Context, location, date string) (*HistoricalDTO, error) {
+	path := fmt.Sprintf(pathHistorical, location, date)
+
+	var result HistoricalDTO
+	if err := c.request(ctx, http.MethodGet, path, nil, &result); err != nil {
+		return nil, err
+	}
+
+	return &result, nil
+}
+
+// 获取财务汇总
+func (c *Client) GetSummary(ctx context.Context, location, date string) (*SummaryDTO, error) {
+	path := fmt.Sprintf(pathSummary, location, date)
+
+	var result SummaryDTO
+	if err := c.request(ctx, http.MethodGet, path, nil, &result); err != nil {
+		return nil, err
+	}
+
+	return &result, nil
+}
+
+// 获取请求量统计
+func (c *Client) GetStats(ctx context.Context, location, date string) (*StatsDTO, error) {
+	path := fmt.Sprintf(pathStats, location, date)
+
+	var result StatsDTO
 	if err := c.request(ctx, http.MethodGet, path, nil, &result); err != nil {
 		return nil, err
 	}
