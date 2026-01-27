@@ -10,6 +10,8 @@ import (
 	airService "go-pratice/internal/module/air/service"
 	cityModel "go-pratice/internal/module/city/model"
 	cityService "go-pratice/internal/module/city/service"
+	providerModel "go-pratice/internal/module/provider/model"
+	providerService "go-pratice/internal/module/provider/service"
 )
 
 // Provider 适配器，实现业务层接口
@@ -17,10 +19,10 @@ type Provider struct {
 	client *Client
 }
 
-
 // Ensure implementation
 var _ airService.IAirProvider = (*Provider)(nil)
 var _ cityService.IGeoProvider = (*Provider)(nil)
+var _ providerService.IProvider = (*Provider)(nil)
 
 func NewProvider(client *Client) *Provider {
 	return &Provider{
@@ -295,6 +297,107 @@ func (p *Provider) FetchDailyAQI(ctx context.Context, lat, lon string) ([]*airMo
 	}
 
 	return logs, nil
+}
+
+func (p *Provider) FetchSummary(ctx context.Context) (*providerModel.Summary, error) {
+	// 从和风拿数据
+	summaryDTO, err := p.client.GetSummary(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// 转换 DTO 到 Domain Model
+	summary := &providerModel.Summary{
+		AsOf:     summaryDTO.AsOf,
+		Currency: summaryDTO.Currency,
+		Balance:  float64(summaryDTO.Balance),
+		AccruedCharges: providerModel.AccruedCharges{
+			PreviousDay:   float64(summaryDTO.AccruedCharges.PreviousDay),
+			ThisMonth:     float64(summaryDTO.AccruedCharges.ThisMonth),
+			SinceLastBill: summaryDTO.AccruedCharges.SinceLastBill,
+		},
+	}
+
+	// 转换 PendingBills
+	if len(summaryDTO.PendingBills) > 0 {
+		summary.PendingBills = make([]providerModel.PendingBill, len(summaryDTO.PendingBills))
+		for i, item := range summaryDTO.PendingBills {
+			summary.PendingBills[i] = providerModel.PendingBill{
+				Number:    item.Number,
+				Type:      item.Type,
+				Amount:    float64(item.Amount),
+				AmountDue: float64(item.AmountDue),
+				DueDate:   item.DueDate,
+			}
+		}
+	}
+
+	// 转换 SavingsPlans
+	if len(summaryDTO.AvailableSavingsPlans) > 0 {
+		summary.SavingsPlans = make([]providerModel.SavingsPlan, len(summaryDTO.AvailableSavingsPlans))
+		for i, item := range summaryDTO.AvailableSavingsPlans {
+			summary.SavingsPlans[i] = providerModel.SavingsPlan{
+				BillNumber:    item.BillNumber,
+				Status:        item.Status,
+				Term:          item.Term,
+				Commitments:   item.Commitments,
+				Utilized:      item.Utilized,
+				EffectiveTime: item.EffectiveTime,
+			}
+		}
+	}
+
+	// 转换 ResourcePlans
+	if len(summaryDTO.AvailableResourcePlans) > 0 {
+		summary.ResourcePlans = make([]providerModel.ResourcePlan, len(summaryDTO.AvailableResourcePlans))
+		for i, item := range summaryDTO.AvailableResourcePlans {
+			summary.ResourcePlans[i] = providerModel.ResourcePlan{
+				BillNumber:    item.BillNumber,
+				Status:        item.Status,
+				Requests:      int64(item.Requests),
+				Utilized:      int64(item.Utilized),
+				EffectiveTime: item.EffectiveTime,
+			}
+		}
+	}
+
+	return summary, nil
+}
+
+func (p *Provider) FetchStats(ctx context.Context) (*providerModel.Stats, error) {
+	// 从和风拿数据
+	statsDTO, err := p.client.GetStats(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// 定义转换函数，避免重复代码
+	convert := func(results []Result) []providerModel.APIStats {
+		if len(results) == 0 {
+			return nil
+		}
+		list := make([]providerModel.APIStats, len(results))
+		for i, item := range results {
+			hours := make([]int64, len(item.Hours))
+			for j, h := range item.Hours {
+				hours[j] = int64(h)
+			}
+			list[i] = providerModel.APIStats{
+				API:   item.Api,
+				Hours: hours,
+			}
+		}
+		return list
+	}
+
+	// DTO 转 Model
+	stats := &providerModel.Stats{
+		AsOf:    statsDTO.AsOf,
+		Success: convert(statsDTO.Success),
+		Errors:  convert(statsDTO.Errors),
+	}
+
+	return stats, nil
 }
 
 func ParseISOTime(str string) (time.Time, error) {

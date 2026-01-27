@@ -2,6 +2,7 @@ package user
 
 import (
 	"go-pratice/internal/module/user/api"
+	"go-pratice/internal/module/user/model"
 	"go-pratice/internal/module/user/repository"
 	"go-pratice/internal/module/user/service"
 
@@ -16,6 +17,9 @@ type Module struct {
 
 // NewModule 初始化 User 模块
 func NewModule(db *gorm.DB) *Module {
+	if e := db.AutoMigrate(&model.User{}); e != nil {
+		panic("User 模块数据库创建失败：" + e.Error())
+	}
 	repo := repository.NewUserRepository(db)
 	svc := service.NewUserService(repo)
 	hdl := api.NewUserApi(svc)

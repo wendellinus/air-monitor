@@ -7,6 +7,8 @@ import (
 	"go-pratice/internal/initialize"
 	"go-pratice/internal/module/air"
 	"go-pratice/internal/module/city"
+	"go-pratice/internal/module/notice"
+	"go-pratice/internal/module/provider"
 	"go-pratice/internal/module/user"
 	"go-pratice/internal/module/websocket"
 	"go-pratice/internal/router"
@@ -65,23 +67,27 @@ func initInfra() *qweather.Provider {
 }
 
 type Modules struct {
-	User *user.Module
-	City *city.Module
-	Air  *air.Module
-	WS   *websocket.Module
+	User     *user.Module
+	City     *city.Module
+	Air      *air.Module
+	WS       *websocket.Module
+	Provider *provider.Module
+	Notice   *notice.Module
 }
 
 func initModules(qweatherProvider *qweather.Provider) *Modules {
 	return &Modules{
-		User: user.NewModule(global.DB),
-		City: city.NewModule(global.DB, qweatherProvider),
-		Air:  air.NewModule(global.DB, qweatherProvider),
-		WS:   websocket.NewModule(),
+		User:     user.NewModule(global.DB),
+		City:     city.NewModule(global.DB, qweatherProvider),
+		Air:      air.NewModule(global.DB, qweatherProvider),
+		WS:       websocket.NewModule(),
+		Provider: provider.NewModule(qweatherProvider, global.LOG.Named("provider")),
+		Notice:   notice.NewModule(global.DB),
 	}
 }
 
 func initRouter(m *Modules) *gin.Engine {
-	return router.NewRouter(m.User, m.City, m.Air, m.WS)
+	return router.NewRouter(m.User, m.City, m.Air, m.WS, m.Provider, m.Notice)
 }
 
 func startServer(r *gin.Engine) {

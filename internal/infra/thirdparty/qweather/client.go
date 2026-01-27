@@ -142,8 +142,8 @@ func (c *Client) GetHistorical(ctx context.Context, location, date string) (*His
 }
 
 // 获取财务汇总
-func (c *Client) GetSummary(ctx context.Context, location, date string) (*SummaryDTO, error) {
-	path := fmt.Sprintf(pathSummary, location, date)
+func (c *Client) GetSummary(ctx context.Context) (*SummaryDTO, error) {
+	path := fmt.Sprintf(pathSummary)
 
 	var result SummaryDTO
 	if err := c.request(ctx, http.MethodGet, path, nil, &result); err != nil {
@@ -154,8 +154,8 @@ func (c *Client) GetSummary(ctx context.Context, location, date string) (*Summar
 }
 
 // 获取请求量统计
-func (c *Client) GetStats(ctx context.Context, location, date string) (*StatsDTO, error) {
-	path := fmt.Sprintf(pathStats, location, date)
+func (c *Client) GetStats(ctx context.Context) (*StatsDTO, error) {
+	path := fmt.Sprintf(pathStats)
 
 	var result StatsDTO
 	if err := c.request(ctx, http.MethodGet, path, nil, &result); err != nil {

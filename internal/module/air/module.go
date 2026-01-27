@@ -2,6 +2,7 @@ package air
 
 import (
 	"go-pratice/internal/module/air/api"
+	airModel "go-pratice/internal/module/air/model"
 	"go-pratice/internal/module/air/repository"
 	"go-pratice/internal/module/air/service"
 	cityRepository "go-pratice/internal/module/city/repository"
@@ -16,6 +17,9 @@ type Module struct {
 }
 
 func NewModule(db *gorm.DB, airProvider service.IAirProvider) *Module {
+	if err := db.AutoMigrate(&airModel.AirQualityLog{}); err != nil {
+		panic("Air 模块数据库创建失败：" + err.Error())
+	}
 	repo := repository.NewAirRepo(db)
 	cityRepo := cityRepository.NewCityRepo(db)
 	// 注入 Named Logger，日志中会自动携带 "logger": "air" 字段

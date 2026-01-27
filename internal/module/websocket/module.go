@@ -15,6 +15,6 @@ func NewModule() *Module {
 	return &Module{handler: hdl}
 }
 
-func (m *Module) RegisterRoutes(public *gin.RouterGroup) {
+func (m *Module) RegisterRoutes(public *gin.RouterGroup, private *gin.RouterGroup) {
 	public.GET("/ws", m.handler.Connect)
 }
