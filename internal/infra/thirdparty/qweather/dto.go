@@ -241,3 +241,56 @@ type AvailableResourcePlans struct {
 	Utilized      int    `json:"utilized"`
 	EffectiveTime string `json:"effectiveTime"`
 }
+
+type WeatherAlert struct {
+	Metadata AlertMetadata `json:"metadata"`
+	Alerts   []Alert       `json:"alerts"`
+}
+
+type AlertMetadata struct {
+	Tag          string   `json:"tag"`
+	ZeroResult   bool     `json:"zeroResult"`
+	Attributions []string `json:"attributions"`
+}
+
+type Alert struct {
+	Id            string           `json:"id"`
+	SenderName    *string          `json:"senderName"`
+	IssuedTime    string           `json:"issuedTime"`
+	MessageType   AlertMessageType `json:"messageType"`
+	EventType     AlertEventType   `json:"eventType"`
+	Urgency       *string          `json:"urgency"`
+	Severity      *string          `json:"severity"`
+	Certainty     *string          `json:"certainty"`
+	Icon          string           `json:"icon"`
+	Color         AlertColor       `json:"color"`
+	EffectiveTime *string          `json:"effectiveTime"`
+	OnsetTime     *string          `json:"onsetTime"`
+	ExpireTime    *string          `json:"expireTime"`
+	Headline      string           `json:"headline"`
+	Description   string           `json:"description"`
+	Criteria      *string          `json:"criteria"`
+	Instruction   *string          `json:"instruction"`
+	ResponseTypes []string         `json:"responseTypes"`
+}
+
+// AlertMessageType 预警信息性质
+type AlertMessageType struct {
+	Code       string   `json:"code"`       // alert, update, cancel
+	Supersedes []string `json:"supersedes"` // 被取代的预警ID列表
+}
+
+// AlertEventType 预警事件类型
+type AlertEventType struct {
+	Name string `json:"name"` // 事件名称，如"大风"
+	Code string `json:"code"` // 事件代码，如"1006"
+}
+
+// AlertColor 预警颜色（RGBA）
+type AlertColor struct {
+	Code  string  `json:"code"`  // 颜色代码，如 blue, yellow, orange, red
+	Red   int     `json:"red"`   // 0-255
+	Green int     `json:"green"` // 0-255
+	Blue  int     `json:"blue"`  // 0-255
+	Alpha float64 `json:"alpha"` // 0-1
+}

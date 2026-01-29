@@ -29,14 +29,15 @@ const (
 
 // API Paths
 const (
-	pathGeoLookup  = "/geo/v2/city/lookup"
-	pathGeoTop     = "/geo/v2/city/top"
-	pathAirCurrent = "/airquality/v1/current/%s/%s" // lat, lon
-	pathAirHourly  = "/airquality/v1/hourly/%s/%s"  // lat, lon
-	pathDaily      = "/airquality/v1/daily/%s/%s"   // lat, lon
-	pathHistorical = "/v7/historical/air"           // lat, lon
-	pathSummary    = "/finance/v1/summary"
-	pathStats      = "/metrics/v1/stats"
+	pathGeoLookup    = "/geo/v2/city/lookup"
+	pathGeoTop       = "/geo/v2/city/top"
+	pathAirCurrent   = "/airquality/v1/current/%s/%s" // lat, lon
+	pathAirHourly    = "/airquality/v1/hourly/%s/%s"  // lat, lon
+	pathDaily        = "/airquality/v1/daily/%s/%s"   // lat, lon
+	pathHistorical   = "/v7/historical/air"           // lat, lon
+	pathSummary      = "/finance/v1/summary"
+	pathStats        = "/metrics/v1/stats"
+	pathWeatherAlert = "//weatheralert/v1/current/%s/%s"
 )
 
 // Config SDK 配置
@@ -351,4 +352,15 @@ func (c *Client) setAuthHeader(req *http.Request, token string) {
 	} else {
 		req.Header.Set("X-QW-Api-Key", token)
 	}
+}
+
+func (c *Client) GetWeatherAlert(ctx context.Context, lat, lon string) (*WeatherAlert, error) {
+	path := fmt.Sprintf(pathWeatherAlert, lat, lon)
+
+	var result WeatherAlert
+	if err := c.request(ctx, http.MethodGet, path, nil, &result); err != nil {
+		return nil, err
+	}
+
+	return &result, nil
 }

@@ -23,7 +23,8 @@ func NewModule(db *gorm.DB, airProvider service.IAirProvider) *Module {
 	repo := repository.NewAirRepo(db)
 	cityRepo := cityRepository.NewCityRepo(db)
 	// 注入 Named Logger，日志中会自动携带 "logger": "air" 字段
-	svc := service.NewAirService(repo, cityRepo, airProvider, global.REDIS, global.LOG.Named("air"))
+	// 注意：缓存逻辑已移至 Provider 装饰器，Service 不再需要 Redis
+	svc := service.NewAirService(repo, cityRepo, airProvider, global.LOG.Named("air"))
 	hdl := api.NewAirHandler(svc)
 	return &Module{handler: hdl}
 }

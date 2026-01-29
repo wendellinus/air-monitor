@@ -41,3 +41,16 @@ qweather:
     YOUR_PRIVATE_KEY_CONTENT_HERE
     -----END PRIVATE KEY-----
   host: "https://devapi.qweather.com" # 免费版使用 devapi，商业版使用私有 host
+
+# 定时任务配置
+cron:
+  enabled: true
+  alert_sync:
+    schedule: "@every 30m" # 也可以用 "0 */30 * * * *"
+    locations:
+      - name: "桂林"
+        lat: "25.28"
+        lon: "110.28"
+      # - name: "北京"
+      #   lat: "39.90"
+      #   lon: "116.40"

@@ -11,6 +11,7 @@ import (
 type INoticeRepo interface {
 	Create(ctx context.Context, notice *model.Notice) error
 	GetActiveNotices(ctx context.Context) ([]*model.Notice, error)
+	ExistsByAlertID(ctx context.Context, alertID string) (bool, error)
 }
 
 // 接口实现检查
@@ -38,3 +39,11 @@ func (repo *NoticeRepo) GetActiveNotices(ctx context.Context) ([]*model.Notice, 
 
 	return notices, err
 }
+
+// ExistsByAlertID 检查指定 AlertID 的预警是否已存在（用于去重）
+func (repo *NoticeRepo) ExistsByAlertID(ctx context.Context, alertID string) (bool, error) {
+	var count int64
+	err := repo.db.WithContext(ctx).Model(&model.Notice{}).Where("alert_id = ?", alertID).Count(&count).Error
+	return count > 0, err
+}
+

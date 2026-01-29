@@ -2,14 +2,10 @@ package service
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"go-pratice/internal/module/air/model"
 	cityModel "go-pratice/internal/module/city/model"
-	"time"
 
-	"github.com/goccy/go-json"
-	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 )
 
@@ -32,37 +28,36 @@ type IAirProvider interface {
 }
 
 // AirService 空气质量业务逻辑
+// 职责：协调城市查询、调用 Provider、补全数据、持久化
+// 注意：缓存逻辑已移至 Provider 装饰器层，Service 无需关心
 type AirService struct {
 	repo        IAirRepo
 	cityRepo    ICityRepo
 	airProvider IAirProvider
-	redis       *redis.Client
 	log         *zap.Logger
 }
 
-func NewAirService(repo IAirRepo, cityRepo ICityRepo, airProvider IAirProvider, redis *redis.Client, log *zap.Logger) *AirService {
+// NewAirService 创建空气质量服务
+func NewAirService(repo IAirRepo, cityRepo ICityRepo, airProvider IAirProvider, log *zap.Logger) *AirService {
 	return &AirService{
 		repo:        repo,
 		cityRepo:    cityRepo,
 		airProvider: airProvider,
-		redis:       redis,
 		log:         log,
 	}
 }
 
 // GetRealtimeAQI 获取实时空气质量
 func (s *AirService) GetRealtimeAQI(ctx context.Context, cityID string) (*model.AirQualityLog, error) {
-	// 1. 查缓存 (TODO: Redis)
-
-	// 2. 获取城市坐标 (新版 API 需要经纬度)
+	// 1. 获取城市坐标
 	city, err := s.cityRepo.GetByCityID(ctx, cityID)
 	if err != nil {
 		s.log.Error("获取城市信息失败", zap.String("cityID", cityID), zap.Error(err))
 		return nil, fmt.Errorf("未找到城市或查询错误: %w", err)
 	}
 
-	// 3. 查 API
-	s.log.Info("正在从 API 获取 AQI", zap.String("city", city.Name), zap.String("lat", city.Lat), zap.String("lon", city.Lon))
+	// 2. 调用 Provider 获取数据 (缓存由 Provider 装饰器透明处理)
+	s.log.Debug("获取实时 AQI", zap.String("city", city.Name))
 	data, err := s.airProvider.FetchAQI(ctx, city.Lat, city.Lon)
 	if err != nil {
 		s.log.Warn("API 请求失败, 尝试降级查询数据库", zap.Error(err))
@@ -74,19 +69,20 @@ func (s *AirService) GetRealtimeAQI(ctx context.Context, cityID string) (*model.
 		return nil, err
 	}
 
-	// 补全 CityID (API 返回中可能没有)
+	// 3. 补全 CityID
 	data.CityID = cityID
 
 	// 4. 异步入库
 	go func() {
-		_ = s.repo.Create(context.Background(), data)
-		s.log.Info("AQI 数据已保存至数据库")
+		if err := s.repo.Create(context.Background(), data); err != nil {
+			s.log.Warn("AQI 数据入库失败", zap.Error(err))
+		}
 	}()
 
 	return data, nil
 }
 
-// GetHourlyAQI 获取小时级空气质量预报
+// GetHourlyAQI 获取逐小时空气质量预报
 func (s *AirService) GetHourlyAQI(ctx context.Context, cityID string) ([]*model.HourlyAQI, error) {
 	// 1. 获取城市坐标
 	city, err := s.cityRepo.GetByCityID(ctx, cityID)
@@ -95,52 +91,23 @@ func (s *AirService) GetHourlyAQI(ctx context.Context, cityID string) ([]*model.
 		return nil, fmt.Errorf("未找到城市或查询错误: %w", err)
 	}
 
-	// 定义缓存 key
-	cacheKey := fmt.Sprintf("air:hourly:%s", cityID)
-
-	// 尝试从 Redis 获取数据
-	val, err := s.redis.Get(ctx, cacheKey).Result()
-	if err == nil {
-		// 缓存命中
-		var hourlyAQI []*model.HourlyAQI
-		if err := json.Unmarshal([]byte(val), &hourlyAQI); err == nil {
-			s.log.Info("缓存命中", zap.String("key", cacheKey))
-			return hourlyAQI, nil
-		}
-		s.log.Error("反序列化失败", zap.Error(err))
-	} else if !errors.Is(err, redis.Nil) {
-		// Redis 报错（非 Key 不存在），记录日志但不中断
-		s.log.Error("Redis 错误", zap.Error(err))
-	}
-
-	// 2. 查 API
-	s.log.Info("正在从 API 获取逐小时 AQI", zap.String("city", city.Name), zap.String("lat", city.Lat), zap.String("lon", city.Lon))
+	// 2. 调用 Provider 获取数据 (缓存由 Provider 装饰器透明处理)
+	s.log.Debug("获取逐小时 AQI", zap.String("city", city.Name))
 	data, err := s.airProvider.FetchHourlyAQI(ctx, city.Lat, city.Lon)
 	if err != nil {
 		s.log.Error("逐小时 API 请求失败", zap.Error(err))
 		return nil, err
 	}
-	
-	// 3. 补全 CityID (先补全，确保缓存的数据也是完整的)
+
+	// 3. 补全 CityID
 	for _, log := range data {
 		log.CityID = cityID
 	}
 
-	// 4. 异步写入缓存
-	go func() {
-		bytesData, err := json.Marshal(data)
-		if err == nil {
-			if err := s.redis.Set(context.Background(), cacheKey, string(bytesData), time.Hour).Err(); err != nil {
-				s.log.Error("写入缓存失败", zap.Error(err))
-			}
-		} else {
-			s.log.Error("序列化失败", zap.Error(err))
-		}
-	}()
-
 	return data, nil
 }
 
+// GetDailyAQI 获取逐天空气质量预报
 func (s *AirService) GetDailyAQI(ctx context.Context, cityID string) ([]*model.DailyAQI, error) {
 	// 1. 获取城市坐标
 	city, err := s.cityRepo.GetByCityID(ctx, cityID)
@@ -149,48 +116,18 @@ func (s *AirService) GetDailyAQI(ctx context.Context, cityID string) ([]*model.D
 		return nil, fmt.Errorf("未找到城市或查询错误: %w", err)
 	}
 
-	// 定义缓存 key
-	cacheKey := fmt.Sprintf("air:daily:%s", cityID)
-
-	// 尝试从 Redis 获取数据
-	val, err := s.redis.Get(ctx, cacheKey).Result()
-	if err == nil {
-		// 缓存命中
-		var dailyAQI []*model.DailyAQI
-		if err := json.Unmarshal([]byte(val), &dailyAQI); err == nil {
-			s.log.Info("缓存命中", zap.String("key", cacheKey))
-			return dailyAQI, nil
-		}
-		s.log.Error("反序列化失败", zap.Error(err))
-	} else if !errors.Is(err, redis.Nil) {
-		// Redis 报错（非 Key 不存在），记录日志但不中断
-		s.log.Error("Redis 错误", zap.Error(err))
-	}
-
-	// 2. 查 API
-	s.log.Info("正在从 API 获取逐天 AQI", zap.String("city", city.Name), zap.String("lat", city.Lat), zap.String("lon", city.Lon))
+	// 2. 调用 Provider 获取数据 (缓存由 Provider 装饰器透明处理)
+	s.log.Debug("获取逐天 AQI", zap.String("city", city.Name))
 	data, err := s.airProvider.FetchDailyAQI(ctx, city.Lat, city.Lon)
 	if err != nil {
 		s.log.Error("逐天 API 请求失败", zap.Error(err))
 		return nil, err
 	}
 
-	// 3. 补全 CityID (先补全，确保缓存的数据也是完整的)
+	// 3. 补全 CityID
 	for _, log := range data {
 		log.CityID = cityID
 	}
-
-	// 4. 异步写入缓存
-	go func() {
-		bytesData, err := json.Marshal(data)
-		if err == nil {
-			if err := s.redis.Set(context.Background(), cacheKey, string(bytesData), time.Hour).Err(); err != nil {
-				s.log.Error("写入缓存失败", zap.Error(err))
-			}
-		} else {
-			s.log.Error("序列化失败", zap.Error(err))
-		}
-	}()
 
 	return data, nil
 }

@@ -2,13 +2,14 @@ package config
 
 // Server 类似于 TS 中的 root interface，汇总所有配置
 type Server struct {
-	System System `mapstructure:"system" json:"system" yaml:"system"`
-	Log    Log    `mapstructure:"log" json:"log" yaml:"log"`
-	// Pgsql
-	Pgsql Pgsql `mapstructure:"pgsql" json:"pgsql" yaml:"pgsql"`
-	JWT   JWT   `mapstructure:"jwt" json:"jwt" yaml:"jwt"`
-	Redis Redis `mapstructure:"redis" json:"redis" yaml:"redis"`
+	System   System         `mapstructure:"system" json:"system" yaml:"system"`
+	Log      Log            `mapstructure:"log" json:"log" yaml:"log"`
+	Pgsql    Pgsql          `mapstructure:"pgsql" json:"pgsql" yaml:"pgsql"`
+	JWT      JWT            `mapstructure:"jwt" json:"jwt" yaml:"jwt"`
+	Redis    Redis          `mapstructure:"redis" json:"redis" yaml:"redis"`
 	QWeather QWeatherConfig `mapstructure:"qweather" json:"qweather" yaml:"qweather"`
+	Cron     CronConfig     `mapstructure:"cron" json:"cron" yaml:"cron"`
+	Cache    CacheConfig    `mapstructure:"cache" json:"cache" yaml:"cache"`
 }
 
 // System 系统配置
@@ -54,11 +55,59 @@ type Redis struct {
 
 type QWeatherConfig struct {
 	Enable     bool   `mapstructure:"enable" yaml:"enable"`
-	Key        string `mapstructure:"key" json:"key" yaml:"key"`                      // API Key (Optional if using JWT)
-	PublicID   string `mapstructure:"public_id" json:"public_id" yaml:"public_id"`    // JWT Public ID (Key ID)
-	ProjectID  string `mapstructure:"project_id" json:"project_id" yaml:"project_id"` // Project ID
+	Key        string `mapstructure:"key" json:"key" yaml:"key"`                         // API Key (Optional if using JWT)
+	PublicID   string `mapstructure:"public_id" json:"public_id" yaml:"public_id"`       // JWT Public ID (Key ID)
+	ProjectID  string `mapstructure:"project_id" json:"project_id" yaml:"project_id"`    // Project ID
 	PrivateKey string `mapstructure:"private_key" json:"private_key" yaml:"private_key"` // JWT Private Key (PEM content)
-	Host       string `mapstructure:"host" json:"host" yaml:"host"`                   // API Host
-	Timeout    int    `mapstructure:"timeout" yaml:"timeout"`                         // Timeout in seconds
-	Debug      bool   `mapstructure:"debug" yaml:"debug"`                             // Debug mode
+	Host       string `mapstructure:"host" json:"host" yaml:"host"`                      // API Host
+	Timeout    int    `mapstructure:"timeout" yaml:"timeout"`                            // Timeout in seconds
+	Debug      bool   `mapstructure:"debug" yaml:"debug"`                                // Debug mode
+}
+
+// CronConfig 定时任务配置
+type CronConfig struct {
+	Enabled      bool              `mapstructure:"enabled" yaml:"enabled"`
+	AlertSync    AlertSyncConfig   `mapstructure:"alert_sync" yaml:"alert_sync"`
+	CacheRefresh CacheRefreshConfig `mapstructure:"cache_refresh" yaml:"cache_refresh"`
+}
+
+// AlertSyncConfig 预警同步任务配置
+type AlertSyncConfig struct {
+	Schedule  string           `mapstructure:"schedule" yaml:"schedule"`   // Cron 表达式，如 "@every 30m" 或 "0 */30 * * * *"
+	Locations []LocationConfig `mapstructure:"locations" yaml:"locations"` // 监控的城市列表
+}
+
+// CacheRefreshConfig 缓存刷新任务配置
+type CacheRefreshConfig struct {
+	Enabled  bool           `mapstructure:"enabled" yaml:"enabled"`   // 是否启用
+	Schedule string         `mapstructure:"schedule" yaml:"schedule"` // Cron 表达式，如 "0 */50 * * * *"
+	Regions  []RegionConfig `mapstructure:"regions" yaml:"regions"`   // 要刷新的地区列表
+}
+
+// RegionConfig 热门城市地区配置
+type RegionConfig struct {
+	Name  string `mapstructure:"name" yaml:"name"`   // 地区代码，如 "cn", "world"
+	Count int    `mapstructure:"count" yaml:"count"` // 获取数量
+}
+
+// LocationConfig 监控城市配置
+type LocationConfig struct {
+	Name string `mapstructure:"name" yaml:"name"` // 城市名称（用于日志）
+	Lat  string `mapstructure:"lat" yaml:"lat"`   // 纬度
+	Lon  string `mapstructure:"lon" yaml:"lon"`   // 经度
+}
+
+// CacheConfig 缓存 TTL 配置
+// TTL 使用字符串格式，如 "45m", "10h", "1h30m"
+type CacheConfig struct {
+	// 空气质量相关
+	AirRealtimeTTL string `mapstructure:"air_realtime_ttl" yaml:"air_realtime_ttl"` // 实时空气质量 (推荐 30-60 分钟)
+	AirHourlyTTL   string `mapstructure:"air_hourly_ttl" yaml:"air_hourly_ttl"`     // 逐小时预报 (推荐 30-60 分钟)
+	AirDailyTTL    string `mapstructure:"air_daily_ttl" yaml:"air_daily_ttl"`       // 逐天预报 (推荐 8-12 小时)
+
+	// 天气预警
+	WeatherAlertTTL string `mapstructure:"weather_alert_ttl" yaml:"weather_alert_ttl"` // 天气预警 (推荐 5-20 分钟)
+
+	// 城市数据
+	TopCitiesTTL string `mapstructure:"top_cities_ttl" yaml:"top_cities_ttl"` // 热门城市
 }

@@ -418,3 +418,8 @@ func ParseISOTime(str string) (time.Time, error) {
 	}
 	return time.Time{}, fmt.Errorf("无法解析时间: %s", str)
 }
+
+func (p *Provider) FetchWeatherAlert(ctx context.Context, lat, lon string) (*WeatherAlert, error) {
+	return p.client.GetWeatherAlert(ctx, lat, lon)
+}
+

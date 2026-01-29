@@ -41,3 +41,11 @@ qweather:
     MC4CAQAwBQYDK2VwBCIEIGcsgpG0oZHeZDcPRO6kCYv9d0O+cTuQ1HnaZ9kRf7DL
     -----END PRIVATE KEY-----
   host: "https://nf5xmdy8n7.re.qweatherapi.com"
+
+# 缓存 TTL 配置 (基于和风天气推荐值)
+cache:
+  air_realtime_ttl: "45m" # 实时空气质量 (推荐 30-60 分钟)
+  air_hourly_ttl: "45m" # 逐小时预报 (推荐 30-60 分钟)
+  air_daily_ttl: "10h" # 逐天预报 (推荐 8-12 小时)
+  weather_alert_ttl: "10m" # 天气预警 (推荐 5-20 分钟)
+  top_cities_ttl: "1h" # 热门城市
