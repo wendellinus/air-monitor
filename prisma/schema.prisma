@@ -1,0 +1,103 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  user
+  operator
+  admin
+}
+
+model User {
+  id           Int      @id @default(autoincrement())
+  username     String   @unique @db.VarChar(20)
+  passwordHash String
+  email        String?  @db.VarChar(64)
+  phone        String?  @db.VarChar(16)
+  isActive     Boolean  @default(true)
+  role         UserRole @default(user)
+  tokenVersion Int      @default(0)
+  // If set, any token with iat older than this should be treated as invalid.
+  tokenInvalidBefore DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  deletedAt DateTime?
+
+  refreshTokens RefreshToken[]
+
+  @@index([deletedAt])
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id])
+  jti       String   @unique
+  tokenHash String
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model City {
+  id      Int    @id @default(autoincrement())
+  cityId  String @unique @db.VarChar(20)
+  name    String @db.VarChar(50)
+  lat     String @db.VarChar(20)
+  lon     String @db.VarChar(20)
+  adm2    String @db.VarChar(50)
+  adm1    String @db.VarChar(50)
+  country String @db.VarChar(50)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model AirQualityLog {
+  id       Int      @id @default(autoincrement())
+  cityId   String   @db.VarChar(20)
+  pubTime  DateTime
+  aqi      Int
+  level    String   @db.VarChar(10)
+  category String   @db.VarChar(20)
+  primary  String?  @db.VarChar(50)
+  pm10     Float
+  pm2p5    Float
+  no2      Float
+  so2      Float
+  co       Float
+  o3       Float
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([cityId])
+  @@index([pubTime])
+}
+
+model Notice {
+  id        Int      @id @default(autoincrement())
+  title     String   @db.VarChar(200)
+  content   String?
+  startTime DateTime
+  endTime   DateTime
+  status    String   @default("draft")
+  level     String   @default("info")
+  alertId   String?  @unique @db.VarChar(50)
+  eventType String?  @db.VarChar(50)
+  severity  String?  @db.VarChar(20)
+  colorCode String?  @db.VarChar(20)
+  source    String   @default("manual") @db.VarChar(20)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
