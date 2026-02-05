@@ -3,6 +3,9 @@ node_modules/
 dist/
 coverage/
 *.tsbuildinfo
+apps/*/dist/
+apps/*/coverage/
+apps/*/node_modules/
 
 # env files
 .env

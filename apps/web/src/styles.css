@@ -1,0 +1,79 @@
+@import "tailwindcss";
+
+@theme {
+  /* shadcn/ui-style semantic tokens */
+  /* Theme: "Abyss Cyan" (big-screen, high-contrast, map-friendly) */
+  --color-background: oklch(17% 0.028 258);
+  --color-foreground: oklch(98% 0.01 258);
+  --color-card: oklch(21% 0.028 258);
+  --color-card-foreground: var(--color-foreground);
+  --color-popover: oklch(21% 0.028 258);
+  --color-popover-foreground: var(--color-foreground);
+  --color-primary: oklch(80% 0.15 210);
+  --color-primary-foreground: oklch(13% 0.03 258);
+  --color-secondary: oklch(26% 0.028 258);
+  --color-secondary-foreground: var(--color-foreground);
+  --color-muted: oklch(26% 0.028 258);
+  --color-muted-foreground: oklch(86% 0.028 258);
+  --color-accent: oklch(26% 0.028 258);
+  --color-accent-foreground: var(--color-foreground);
+  --color-destructive: oklch(63% 0.22 25);
+  --color-destructive-foreground: var(--color-foreground);
+  --color-border: oklch(37% 0.028 258);
+  --color-input: oklch(37% 0.028 258);
+  --color-ring: oklch(80% 0.15 210);
+
+  --radius: 0.95rem;
+}
+
+@theme inline {
+  --animate-marquee: marquee 26s linear infinite;
+
+  @keyframes marquee {
+    0% {
+      transform: translateX(0);
+    }
+    100% {
+      transform: translateX(-50%);
+    }
+  }
+}
+
+:root {
+  color-scheme: dark;
+  --bg: #081028;
+  --panel: rgba(255, 255, 255, 0.08);
+  --panel-border: rgba(255, 255, 255, 0.18);
+  --text: rgba(255, 255, 255, 0.93);
+  --muted: rgba(255, 255, 255, 0.76);
+  --accent: #3dd9ff;
+  --danger: #ff5a7a;
+  --radius: 14px;
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji",
+    "Segoe UI Emoji";
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+  background: radial-gradient(1200px 700px at 18% 12%, rgba(61, 217, 255, 0.24), transparent 60%),
+    radial-gradient(900px 640px at 82% 28%, rgba(255, 90, 122, 0.13), transparent 66%),
+    linear-gradient(180deg, #081028, #05081a);
+  color: var(--text);
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.hint {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.error {
+  font-size: 12px;
+  color: var(--danger);
+}

@@ -1,6 +1,9 @@
-# API (NestJS)
+# Monorepo (API + Web)
 
-This repository contains a NestJS API. It replaces the previous Go implementation (moved to a separate branch).
+This repository is a pnpm workspace monorepo:
+
+- `apps/api`: NestJS API (ported from legacy Go implementation)
+- `apps/web`: React + Vite frontend (dashboard + admin)
 
 ## Requirements
 
@@ -20,7 +23,7 @@ docker compose up -d
 2) Configure env
 
 ```bash
-cp .env.example .env
+cp apps/api/.env.example apps/api/.env
 ```
 
 3) Install deps and generate Prisma client
@@ -42,11 +45,16 @@ pnpm prisma:migrate:dev
 pnpm prisma:seed
 ```
 
-6) Start dev server
+6) Start dev server(s)
 
 ```bash
-pnpm start:dev
+pnpm dev:api
 ```
+
+Frontend:
+
+- Copy web env and set AMap key: `cp apps/web/.env.example apps/web/.env`
+- Start web: `pnpm dev:web`
 
 ## Swagger
 
@@ -54,8 +62,8 @@ pnpm start:dev
 
 ## Docs
 
-- Beginner Guide (setup + full API list): `docs/beginner-guide.md`
-- Memory Anchor (short): `docs/memory-anchor.md`
+- Beginner Guide (setup + full API list): `apps/api/docs/beginner-guide.md`
+- Memory Anchor (short): `apps/api/docs/memory-anchor.md`
 
 ## API Notes
 
