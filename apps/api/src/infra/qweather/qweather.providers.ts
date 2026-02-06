@@ -1,4 +1,5 @@
 import { Inject } from '@nestjs/common';
+import axios from 'axios';
 import type Redis from 'ioredis';
 
 import { REDIS_CLIENT } from '../redis/redis.constants';
@@ -51,11 +52,41 @@ class QweatherGeoProvider implements GeoProvider {
     const cached = await this.redis.get(cacheKey);
     if (cached) return JSON.parse(cached) as QweatherGeoCity[];
 
-    // Matches legacy Go behavior: /geo/v2/city/lookup?location=...
-    const data = await this.client.get<{
-      code?: string;
-      location?: Array<Record<string, unknown>>;
-    }>('/geo/v2/city/lookup', { location: keyword });
+    let data: { code?: string; location?: Array<Record<string, unknown>> };
+    try {
+      // Matches legacy Go behavior: /geo/v2/city/lookup?location=...
+      data = await this.client.get<{
+        code?: string;
+        location?: Array<Record<string, unknown>>;
+      }>('/geo/v2/city/lookup', { location: keyword });
+    } catch (e) {
+      // If QWeather rejects the location (HTTP 400), treat it as "no data" so the UI can guide
+      // users to pick a valid land address instead of showing a generic operation error.
+      if (axios.isAxiosError(e)) {
+        const status = e.response?.status;
+        if (status === 400) {
+          await this.redis.set(cacheKey, JSON.stringify([]), 'EX', 60 * 2);
+          return [];
+        }
+        if (status === 401 || status === 403) {
+          throw new Error('定位服务鉴权失败，请检查 QWeather 配置。');
+        }
+        if (status === 429) {
+          throw new Error('定位服务请求过于频繁，请稍后重试。');
+        }
+        if (typeof status === 'number' && status >= 500) {
+          throw new Error('定位服务暂不可用，请稍后重试。');
+        }
+      }
+      throw e;
+    }
+
+    // QWeather returns "204" for "no data". Treat it as an empty result so the UI can
+    // show a "no valid address/city" hint (e.g. when clicking sea) instead of a hard error.
+    if (data.code === '204') {
+      await this.redis.set(cacheKey, JSON.stringify([]), 'EX', 60 * 10);
+      return [];
+    }
 
     if (data.code && data.code !== '200') {
       throw new Error(`QWeather Geo error: code=${data.code}`);

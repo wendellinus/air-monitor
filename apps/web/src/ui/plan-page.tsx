@@ -110,7 +110,7 @@ export function PlanPage(): React.ReactNode {
       </div>
 
       <div className="pointer-events-none absolute inset-0 p-6">
-        <div className="pointer-events-auto flex items-center justify-between rounded-[--radius] border border-white/10 bg-black/55 px-4 py-3 backdrop-blur-lg shadow-[0_18px_60px_rgba(0,0,0,0.55)] ring-1 ring-white/5">
+        <div className="pointer-events-auto flex items-center justify-between rounded-[var(--radius)] border border-white/10 bg-black/55 px-4 py-3 backdrop-blur-lg shadow-[0_18px_60px_rgba(0,0,0,0.55)] ring-1 ring-white/5">
           <div className="flex items-center gap-4">
             <div className="text-base font-semibold tracking-[0.22em]">PLAN</div>
             <div className="text-sm text-muted-foreground">点击地图选择地点</div>

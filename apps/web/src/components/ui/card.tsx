@@ -3,7 +3,15 @@ import * as React from 'react';
 import { cn } from '@/lib/utils';
 
 export function Card(props: React.HTMLAttributes<HTMLDivElement>): React.ReactNode {
-  return <div className={cn('rounded-[--radius] border border-border bg-card text-card-foreground', props.className)} {...props} />;
+  return (
+    <div
+      className={cn(
+        'rounded-[var(--radius)] border border-border bg-card text-card-foreground',
+        props.className,
+      )}
+      {...props}
+    />
+  );
 }
 
 export function CardHeader(props: React.HTMLAttributes<HTMLDivElement>): React.ReactNode {
@@ -25,4 +33,3 @@ export function CardContent(props: React.HTMLAttributes<HTMLDivElement>): React.
 export function CardFooter(props: React.HTMLAttributes<HTMLDivElement>): React.ReactNode {
   return <div className={cn('flex items-center p-6 pt-0', props.className)} {...props} />;
 }
-

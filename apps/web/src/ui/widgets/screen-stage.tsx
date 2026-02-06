@@ -9,7 +9,7 @@ type ScreenStageProps = {
   className?: string;
 };
 
-type StageLayout = { scale: number; left: number; top: number };
+type StageLayout = { scale: number; left: number; top: number; width: number; height: number };
 
 export function ScreenStage(props: ScreenStageProps): React.ReactNode {
   const designWidth = props.designWidth ?? 1920;
@@ -19,20 +19,27 @@ export function ScreenStage(props: ScreenStageProps): React.ReactNode {
     scale: 1,
     left: 0,
     top: 0,
+    width: designWidth,
+    height: designHeight,
   }));
 
   React.useLayoutEffect(() => {
     const update = (): void => {
       const vw = window.innerWidth;
       const vh = window.innerHeight;
-      // Fit-width scaling: fill the viewport width without cropping left/right.
-      // Height may letterbox (centered) or overflow (clamped to top) depending on aspect ratio.
-      const scale = vw / designWidth;
-      const scaledHeight = designHeight * scale;
+      // Contain scaling: avoid clipping bottom UI when not fullscreen.
+      const scale = Math.min(vw / designWidth, vh / designHeight);
+
+      // Keep the scaled stage filling the viewport, so "left: 8px / right: 8px"
+      // positioning inside the stage maps to the actual viewport edges.
+      const stageWidth = vw / scale;
+      const stageHeight = vh / scale;
       setLayout({
         scale,
         left: 0,
-        top: Math.max(0, (vh - scaledHeight) / 2),
+        top: 0,
+        width: stageWidth,
+        height: stageHeight,
       });
     };
 
@@ -48,8 +55,8 @@ export function ScreenStage(props: ScreenStageProps): React.ReactNode {
           position: 'absolute',
           left: layout.left,
           top: layout.top,
-          width: designWidth,
-          height: designHeight,
+          width: layout.width,
+          height: layout.height,
           transform: `scale(${layout.scale})`,
           transformOrigin: 'top left',
         }}

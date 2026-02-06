@@ -1,4 +1,4 @@
-@import "tailwindcss";
+@import 'tailwindcss';
 
 @theme {
   /* shadcn/ui-style semantic tokens */
@@ -39,6 +39,26 @@
   }
 }
 
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Sonner (toast) tuning for big-screen: wider + consistent radius/offset. */
+.toaster {
+  --border-radius: var(--radius);
+  --offset-top: 14px;
+  --offset-left: 16px;
+  --offset-right: 16px;
+  --offset-bottom: 16px;
+}
+
 :root {
   color-scheme: dark;
   --bg: #081028;
@@ -49,15 +69,24 @@
   --accent: #3dd9ff;
   --danger: #ff5a7a;
   --radius: 14px;
-  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji",
-    "Segoe UI Emoji";
+  font-family:
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    Segoe UI,
+    Roboto,
+    Helvetica,
+    Arial,
+    'Apple Color Emoji',
+    'Segoe UI Emoji';
 }
 
 html,
 body {
   height: 100%;
   margin: 0;
-  background: radial-gradient(1200px 700px at 18% 12%, rgba(61, 217, 255, 0.24), transparent 60%),
+  background:
+    radial-gradient(1200px 700px at 18% 12%, rgba(61, 217, 255, 0.24), transparent 60%),
     radial-gradient(900px 640px at 82% 28%, rgba(255, 90, 122, 0.13), transparent 66%),
     linear-gradient(180deg, #081028, #05081a);
   color: var(--text);

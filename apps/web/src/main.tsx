@@ -5,6 +5,7 @@ import { RouterProvider } from 'react-router-dom';
 
 import { queryClient } from './shared/query-client';
 import { router } from './shared/router';
+import { Toaster } from './components/ui/sonner';
 import './styles.css';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
@@ -12,6 +13,6 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     <QueryClientProvider client={queryClient}>
       <RouterProvider router={router} />
     </QueryClientProvider>
+    <Toaster position="top-center" />
   </React.StrictMode>,
 );
-

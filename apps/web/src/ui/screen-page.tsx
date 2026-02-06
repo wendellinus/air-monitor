@@ -5,7 +5,10 @@ import {
   Building2,
   CloudFog,
   CloudRain,
+  LocateFixed,
   MapPin,
+  Maximize2,
+  Minimize2,
   Search,
   Snowflake,
   SunMedium,
@@ -25,14 +28,16 @@ import type {
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Dock, DockIcon } from '@/components/ui/dock';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { gcj02ToWgs84, type LonLat } from '@/lib/coords';
+import { gcj02ToWgs84, wgs84ToGcj02, type LonLat } from '@/lib/coords';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 
 import { api } from '../shared/api';
-import type { ApiResponse } from '../shared/types';
+import { ApiError, type ApiResponse } from '../shared/types';
 import { AMapPanel } from './widgets/amap-panel';
 import {
   getAlertAccentColor,
@@ -42,6 +47,22 @@ import {
   pickPrimaryAlert,
 } from './widgets/alert-icon';
 import { ScreenStage } from './widgets/screen-stage';
+
+const toastDedupe = new Map<string, number>();
+
+function toastErrorDeduped(key: string, message: string, ttlMs = 2500): void {
+  const now = Date.now();
+  const last = toastDedupe.get(key) ?? 0;
+  if (now - last < ttlMs) return;
+  toastDedupe.set(key, now);
+  toast.error(message);
+}
+
+// Big-screen polling defaults (avoid stale data on wall displays).
+const REFRESH_TOP_CITIES_MS = 30 * 60_000;
+const REFRESH_NOTICES_MS = 5 * 60_000;
+const REFRESH_AIR_MS = 60_000;
+const REFRESH_ALERTS_MS = 3 * 60_000;
 
 function formatDateTime(value: string | undefined): string {
   if (!value) return '-';
@@ -86,16 +107,56 @@ function alertSeverityLabel(value: string | undefined): string {
 }
 
 function humanizeError(input: unknown): string {
-  const raw = input instanceof Error ? input.message : String(input ?? '');
-  if (!raw) return '请求失败，请稍后重试';
+  const unknownMsg = '操作失败，请稍后重试。';
+
+  const anyErr = input as
+    | {
+        message?: unknown;
+        code?: unknown;
+        response?: { data?: { msg?: unknown } };
+      }
+    | null
+    | undefined;
+
+  const msgFromApi = anyErr?.response?.data?.msg;
+  if (typeof msgFromApi === 'string' && msgFromApi.trim()) return msgFromApi.trim();
+
+  const raw = typeof anyErr?.message === 'string' ? anyErr.message : String(input ?? '');
+  if (!raw) return unknownMsg;
   const lower = raw.toLowerCase();
-  if (lower.includes('city not found')) return '未找到该位置对应城市。';
-  if (lower.includes('econnrefused')) return '无法连接到 API 服务，请检查后端是否启动。';
-  if (lower.includes('qweather') && lower.includes('empty'))
-    return 'QWeather 返回为空，请检查 Key / 权限 / 配额。';
-  if (lower.includes('qweather') && lower.includes('credential'))
-    return '请检查 QWEATHER_API_KEY 是否正确。';
-  return raw;
+
+  // QWeather Geo error codes. When clicking sea or invalid area, QWeather may return "204" (no data).
+  const geoCodeMatch = lower.match(/qweather\\s+geo\\s+error:\\s*code=(\\d+)/i);
+  if (geoCodeMatch) {
+    const code = geoCodeMatch[1];
+    if (code === '204' || code === '404') {
+      return '该位置无法识别到有效城市（可能在海面/无人区），请选陆地位置。';
+    }
+    if (code === '400') {
+      return '所选位置无效，请重新选择。';
+    }
+    if (code === '401' || code === '403') {
+      return '定位服务暂不可用，请稍后再试。';
+    }
+    return '定位服务暂不可用，请稍后再试。';
+  }
+
+  // If backend already provided a user-friendly Chinese message, keep it.
+  if (/[\u4e00-\u9fff]/.test(raw) && raw.length <= 60) return raw.trim();
+
+  if (lower.includes('city not found')) return '未找到该位置对应的城市，请换个位置试试。';
+  if (lower.includes('invalid') && (lower.includes('location') || lower.includes('coordinate')))
+    return '所选位置无效（可能在海面或无有效地址），请重新选择。';
+  if (lower.includes('not found') || lower.includes('404')) return '未找到相关数据，请换个位置试试。';
+  if (lower.includes('network error') || lower.includes('failed to fetch'))
+    return '网络异常，请检查网络后重试。';
+  if (lower.includes('timeout') || lower.includes('etimedout') || lower.includes('econnaborted'))
+    return '请求超时，请稍后重试。';
+  if (lower.includes('econnrefused') || lower.includes('connect') || lower.includes('socket'))
+    return '服务暂不可用，请稍后重试。';
+
+  // Avoid exposing raw technical strings to end users.
+  return unknownMsg;
 }
 
 function GlassCard(props: React.ComponentProps<typeof Card>): React.ReactNode {
@@ -213,7 +274,6 @@ export function ScreenPage(): React.ReactNode {
   const [airHourly, setAirHourly] = React.useState<AirHourlyItem[]>([]);
   const [notices, setNotices] = React.useState<NoticeItem[]>([]);
   const [alerts, setAlerts] = React.useState<WeatherAlertResponse | null>(null);
-  const [error, setError] = React.useState<string | null>(null);
   const [now, setNow] = React.useState<Date>(() => new Date());
 
   const [searchOpen, setSearchOpen] = React.useState<boolean>(false);
@@ -221,10 +281,14 @@ export function ScreenPage(): React.ReactNode {
   const [searchResults, setSearchResults] = React.useState<CityItem[]>([]);
   const [searchLoading, setSearchLoading] = React.useState<boolean>(false);
   const [searchError, setSearchError] = React.useState<string | null>(null);
+  const [isFullscreen, setIsFullscreen] = React.useState<boolean>(
+    () => Boolean(typeof document !== 'undefined' && document.fullscreenElement),
+  );
 
   const mapLookupAbortRef = React.useRef<AbortController | null>(null);
   const searchAbortRef = React.useRef<AbortController | null>(null);
   const searchInputRef = React.useRef<HTMLInputElement | null>(null);
+  const selectedRef = React.useRef<CityItem | null>(null);
 
   const closeSearch = React.useCallback((): void => {
     searchAbortRef.current?.abort();
@@ -249,6 +313,10 @@ export function ScreenPage(): React.ReactNode {
     const lat = toNumber(selected.lat);
     if (lon === null || lat === null) return null;
     return { lon, lat };
+  }, [selected]);
+
+  React.useEffect(() => {
+    selectedRef.current = selected;
   }, [selected]);
 
   React.useEffect(() => {
@@ -326,8 +394,10 @@ export function ScreenPage(): React.ReactNode {
           ) {
             return;
           }
+          const msg = humanizeError(e);
           setSearchResults([]);
-          setSearchError(humanizeError(e));
+          setSearchError(msg);
+          toastErrorDeduped('city-search', msg, 2500);
         })
         .finally(() => {
           if (controller.signal.aborted) return;
@@ -356,7 +426,6 @@ export function ScreenPage(): React.ReactNode {
     const controller = new AbortController();
     mapLookupAbortRef.current = controller;
 
-    setError(null);
     api
       .get<ApiResponse<CityItem[]>>('/city/lookup', {
         params: { lon: normalized.lon, lat: normalized.lat },
@@ -366,7 +435,7 @@ export function ScreenPage(): React.ReactNode {
         const list = Array.isArray(res.data.data) ? res.data.data : [];
         const found = list[0] ?? null;
         if (!found) {
-          setError('未找到该位置对应城市。');
+          toast.info('该位置无法识别到有效城市（可能在海面/无人区），请选陆地位置。');
           return;
         }
         setSelected(found);
@@ -380,9 +449,72 @@ export function ScreenPage(): React.ReactNode {
         ) {
           return;
         }
-        setError(humanizeError(e));
+        // Avoid showing a vague "operation failed" for map picking. Give users a reason + next action.
+        if (e instanceof ApiError && e.code === 50001) {
+          const raw = (e.message || '').toLowerCase();
+          if (raw.includes('status code 400')) {
+            toast.info('该位置无法识别到有效城市（可能在海面/无人区），请选陆地位置。');
+            return;
+          }
+        }
+
+        const msg = humanizeError(e);
+        if (msg.includes('海面') || msg.includes('无效') || msg.includes('无法识别')) {
+          toast.info(msg);
+          return;
+        }
+        if (msg === '操作失败，请稍后重试。') {
+          toastErrorDeduped('city-lookup', '无法获取该位置对应的城市信息，请换个位置试试。', 2500);
+          return;
+        }
+        toastErrorDeduped('city-lookup', msg, 2500);
       });
   }, []);
+
+  const toggleFullscreen = React.useCallback(async (): Promise<void> => {
+    try {
+      if (document.fullscreenElement) {
+        await document.exitFullscreen();
+        return;
+      }
+      await document.documentElement.requestFullscreen();
+    } catch {
+      // Ignore fullscreen errors (permissions / gesture requirements vary by browser).
+    }
+  }, []);
+
+  React.useEffect(() => {
+    const onChange = () => setIsFullscreen(Boolean(document.fullscreenElement));
+    document.addEventListener('fullscreenchange', onChange);
+    onChange();
+    return () => document.removeEventListener('fullscreenchange', onChange);
+  }, []);
+
+  const locateMe = React.useCallback((): void => {
+    if (!('geolocation' in navigator)) {
+      toast.error('当前浏览器不支持定位，请手动选择城市。');
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const gcj = wgs84ToGcj02(pos.coords.longitude, pos.coords.latitude);
+        onMapClick({ lon: gcj.lon, lat: gcj.lat });
+      },
+      (e) => {
+        const code = typeof e?.code === 'number' ? e.code : 0;
+        const message =
+          code === 1
+            ? '定位权限已被拒绝，请在浏览器设置中开启定位后重试。'
+            : code === 2
+              ? '无法获取当前位置，请检查网络或系统定位服务后重试。'
+              : code === 3
+                ? '定位超时，请稍后重试。'
+                : '定位失败，请稍后重试。';
+        toast.error(message);
+      },
+      { enableHighAccuracy: true, timeout: 8000, maximumAge: 30_000 },
+    );
+  }, [onMapClick]);
 
   React.useEffect(() => {
     const cityId = selected?.cityId;
@@ -391,20 +523,42 @@ export function ScreenPage(): React.ReactNode {
       return;
     }
 
-    setAlerts(null);
     let mounted = true;
-    api
-      .get<ApiResponse<WeatherAlertResponse>>('/alert/current', { params: { city_id: cityId } })
-      .then((res) => {
+    let inFlight: AbortController | null = null;
+    let t: number | null = null;
+
+    const load = async (): Promise<void> => {
+      inFlight?.abort();
+      const controller = new AbortController();
+      inFlight = controller;
+      try {
+        const res = await api.get<ApiResponse<WeatherAlertResponse>>('/alert/current', {
+          params: { city_id: cityId },
+          signal: controller.signal,
+        });
         if (!mounted) return;
         setAlerts(res.data.data);
-      })
-      .catch(() => {
+      } catch (e) {
+        const err = e as { name?: string; code?: string };
+        if (
+          err.name === 'CanceledError' ||
+          err.name === 'AbortError' ||
+          err.code === 'ERR_CANCELED'
+        ) {
+          return;
+        }
         if (!mounted) return;
+        // Alerts are nice-to-have; keep it quiet but avoid permanent stale UI.
         setAlerts(null);
-      });
+      }
+    };
+
+    void load();
+    t = window.setInterval(() => void load(), REFRESH_ALERTS_MS);
     return () => {
       mounted = false;
+      if (t !== null) window.clearInterval(t);
+      inFlight?.abort();
     };
   }, [selected?.cityId]);
 
@@ -420,12 +574,15 @@ export function ScreenPage(): React.ReactNode {
           params: { rangeType: 'cn', number: 10 },
         });
         if (!mounted) return;
-        setError(null);
         setCities(res.data.data);
-        setSelected(res.data.data[0] ?? null);
+        // Only auto-select on initial empty selection; don't override user's choice.
+        if (!selectedRef.current) setSelected(res.data.data[0] ?? null);
       } catch (e) {
         if (!mounted) return;
-        setError(humanizeError(e));
+        const msg = humanizeError(e);
+        if (attemptCount === 1 || attemptCount >= 15) {
+          toastErrorDeduped('city-top', msg, 6000);
+        }
         if (attemptCount < 15) {
           timer = setTimeout(() => {
             void load();
@@ -452,27 +609,87 @@ export function ScreenPage(): React.ReactNode {
   }, []);
 
   React.useEffect(() => {
+    let mounted = true;
+
+    const refreshTopCities = async (): Promise<void> => {
+      try {
+        const res = await api.get<ApiResponse<CityItem[]>>('/city/top', {
+          params: { rangeType: 'cn', number: 10 },
+        });
+        if (!mounted) return;
+        setCities(res.data.data);
+      } catch (e) {
+        if (!mounted) return;
+        toastErrorDeduped('city-top-poll', humanizeError(e), 8000);
+      }
+    };
+
+    const refreshNotices = async (): Promise<void> => {
+      try {
+        const res = await api.get<ApiResponse<NoticeItem[]>>('/notice/active');
+        if (!mounted) return;
+        setNotices(res.data.data);
+      } catch {
+        // ignore on screen
+      }
+    };
+
+    const t1 = window.setInterval(() => void refreshTopCities(), REFRESH_TOP_CITIES_MS);
+    const t2 = window.setInterval(() => void refreshNotices(), REFRESH_NOTICES_MS);
+
+    return () => {
+      mounted = false;
+      window.clearInterval(t1);
+      window.clearInterval(t2);
+    };
+  }, []);
+
+  React.useEffect(() => {
     if (!selected) return;
     setAir(null);
     setAirHourly([]);
     let mounted = true;
-    (async () => {
+    let inFlight: AbortController | null = null;
+    let t: number | null = null;
+
+    const load = async (): Promise<void> => {
+      inFlight?.abort();
+      const controller = new AbortController();
+      inFlight = controller;
       try {
         const [nowRes, hourlyRes] = await Promise.all([
-          api.get<ApiResponse<AirNowItem>>('/air/now', { params: { city_id: selected.cityId } }),
+          api.get<ApiResponse<AirNowItem>>('/air/now', {
+            params: { city_id: selected.cityId },
+            signal: controller.signal,
+          }),
           api.get<ApiResponse<AirHourlyItem[]>>('/air/hourly', {
             params: { city_id: selected.cityId },
+            signal: controller.signal,
           }),
         ]);
         if (!mounted) return;
         setAir(nowRes.data.data);
         setAirHourly(Array.isArray(hourlyRes.data.data) ? hourlyRes.data.data : []);
       } catch (e) {
-        if (mounted) setError(humanizeError(e));
+        const err = e as { name?: string; code?: string };
+        if (
+          err.name === 'CanceledError' ||
+          err.name === 'AbortError' ||
+          err.code === 'ERR_CANCELED'
+        ) {
+          return;
+        }
+        if (!mounted) return;
+        toastErrorDeduped(`air-${selected.cityId}`, humanizeError(e), 8000);
       }
-    })();
+    };
+
+    void load();
+    t = window.setInterval(() => void load(), REFRESH_AIR_MS);
     return () => {
       mounted = false;
+      if (t !== null) window.clearInterval(t);
+      inFlight?.abort();
     };
   }, [selected?.cityId]);
 
@@ -520,7 +737,7 @@ export function ScreenPage(): React.ReactNode {
       yAxis: {
         type: 'value',
         min: 0,
-        name: 'AQI',
+        name: 'AQI(指数)',
         nameGap: 34,
         nameTextStyle: { color: 'rgba(255,255,255,0.60)' },
         axisLine: { show: false },
@@ -556,7 +773,7 @@ export function ScreenPage(): React.ReactNode {
       grid: { left: 74, right: 18, top: 24, bottom: 30 },
       xAxis: {
         type: 'value',
-        name: '浓度(μg/m³；CO: mg/m³)',
+        name: '浓度(μg/m³)\nCO: mg/m³',
         nameGap: 22,
         nameTextStyle: { color: 'rgba(255,255,255,0.58)' },
         axisLabel: { color: 'rgba(255,255,255,0.60)' },
@@ -565,7 +782,7 @@ export function ScreenPage(): React.ReactNode {
       yAxis: {
         type: 'category',
         data: rows.map((r) => r.name),
-        name: '污染物',
+        name: '污染物(类别)',
         nameGap: 36,
         nameTextStyle: { color: 'rgba(255,255,255,0.58)' },
         axisLabel: { color: 'rgba(255,255,255,0.75)' },
@@ -784,8 +1001,8 @@ export function ScreenPage(): React.ReactNode {
       </div>
 
       <ScreenStage className="pointer-events-none">
-        <div className="pointer-events-none flex h-full w-full flex-col gap-3 px-0 py-0">
-          <header className="pointer-events-auto relative z-30 flex items-center rounded-[--radius] border border-white/8 bg-black/22 px-4 py-3 shadow-[0_18px_60px_rgba(0,0,0,0.45)] ring-1 ring-white/10 backdrop-blur-lg">
+        <div className="pointer-events-none relative flex h-full w-full flex-col gap-3 p-0">
+          <header className="pointer-events-auto relative z-30 flex w-full items-center rounded-[var(--radius)] border border-white/8 bg-black/22 px-4 py-3 shadow-[0_18px_60px_rgba(0,0,0,0.45)] ring-1 ring-white/10 backdrop-blur-lg">
             <div className="flex items-center gap-4">
               <div className="text-base font-semibold tracking-[0.22em]">空气质量监测</div>
             </div>
@@ -907,12 +1124,6 @@ export function ScreenPage(): React.ReactNode {
                       </InputGroupAddon>
                     </InputGroup>
 
-                    {searchError ? (
-                      <div className="rounded-2xl border border-rose-200/18 bg-rose-200/10 px-3 py-2 text-xs text-rose-100 ring-1 ring-rose-200/10">
-                        {searchError}
-                      </div>
-                    ) : null}
-
                     <div className="rounded-2xl border border-white/10 bg-black/10 ring-1 ring-white/8">
                       <ScrollArea className="h-[320px]">
                         <div className="flex flex-col gap-2 p-3">
@@ -962,9 +1173,9 @@ export function ScreenPage(): React.ReactNode {
 
           <main className="relative z-0 flex-1">
             <div className="absolute inset-0">
-              <div className="pointer-events-auto absolute left-4 top-0 bottom-0 w-[300px] min-h-0">
+              <div className="pointer-events-auto absolute left-2 top-0 bottom-0 w-[300px] min-h-0">
                 <div className="flex h-full min-h-0 flex-col gap-3">
-                  <GlassCard className="p-4">
+                  <GlassCard className="p-4 rounded-[8px]">
                     <CardHeader className="pb-4">
                       <CardTitle className="text-base">{selected?.name ?? '未选择城市'}</CardTitle>
                       <CardDescription className="text-sm">
@@ -974,11 +1185,6 @@ export function ScreenPage(): React.ReactNode {
                       </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4 pt-0">
-                      {error ? (
-                        <div className="rounded-2xl border border-rose-200/18 bg-rose-200/10 px-3 py-2 text-xs text-rose-100 ring-1 ring-rose-200/10">
-                          {error}
-                        </div>
-                      ) : null}
                       <div className="flex items-end justify-between">
                         <div
                           className={cn(
@@ -1023,10 +1229,12 @@ export function ScreenPage(): React.ReactNode {
                     </CardContent>
                   </GlassCard>
 
-                  <GlassCard className="flex min-h-0 flex-1 flex-col">
+                  <GlassCard className="flex min-h-0 flex-1 flex-col rounded-[8px]">
                     <CardHeader className="p-5 pb-4">
                       <CardTitle className="text-base">热门城市</CardTitle>
-                      <CardDescription className="text-sm">点击列表或地图点位切换城市</CardDescription>
+                      <CardDescription className="text-sm">
+                        点击列表或地图点位切换城市
+                      </CardDescription>
                     </CardHeader>
                     <CardContent className="min-h-0 flex-1 p-0">
                       <div
@@ -1061,7 +1269,7 @@ export function ScreenPage(): React.ReactNode {
                 </div>
               </div>
 
-              <div className="pointer-events-auto absolute top-0 right-4 bottom-0 w-[400px] min-h-0">
+              <div className="pointer-events-auto absolute top-0 right-2 bottom-0 w-[400px] min-h-0">
                 <div
                   className="h-full"
                   onWheelCapture={(e) => e.stopPropagation()}
@@ -1073,15 +1281,15 @@ export function ScreenPage(): React.ReactNode {
                         title="AQI 趋势"
                         description="最近 5 个小时"
                         option={trendOption}
-                        cardClassName="bg-black/6 ring-white/10 border-white/16 p-4"
+                        cardClassName="bg-black/6 ring-white/10 border-white/16 p-4 rounded-[8px]"
                       />
                       <EChartPanel
                         title="污染物浓度"
                         description="当前主要污染物"
                         option={pollutantOption}
-                        cardClassName="bg-black/6 ring-white/10 border-white/16 p-4"
+                        cardClassName="bg-black/6 ring-white/10 border-white/16 p-4 rounded-[8px]"
                       />
-                      <GlassCard className="bg-black/6 ring-white/10 border-white/16 p-4">
+                      <GlassCard className="bg-black/6 ring-white/10 border-white/16 p-4 rounded-[8px]">
                         <CardHeader className="gap-2 pb-4">
                           <CardTitle className="text-base">图例</CardTitle>
                         </CardHeader>
@@ -1098,7 +1306,7 @@ export function ScreenPage(): React.ReactNode {
                                     />
                                   }
                                   title="热门城市"
-                              />
+                                />
                                 <LegendItem
                                   icon={
                                     <MapPin
@@ -1108,7 +1316,7 @@ export function ScreenPage(): React.ReactNode {
                                     />
                                   }
                                   title="定位"
-                              />
+                                />
                                 <LegendItem
                                   icon={
                                     <AlertTriangle
@@ -1118,7 +1326,7 @@ export function ScreenPage(): React.ReactNode {
                                     />
                                   }
                                   title="预警"
-                              />
+                                />
                                 <LegendItem
                                   icon={
                                     <Tornado
@@ -1128,7 +1336,7 @@ export function ScreenPage(): React.ReactNode {
                                     />
                                   }
                                   title={getAlertKindLabel('typhoon')}
-                              />
+                                />
                                 <LegendItem
                                   icon={
                                     <CloudRain
@@ -1138,13 +1346,13 @@ export function ScreenPage(): React.ReactNode {
                                     />
                                   }
                                   title={getAlertKindLabel('rain')}
-                              />
+                                />
                                 <LegendItem
                                   icon={
                                     <Zap className="h-5 w-5" strokeWidth={2.2} aria-hidden="true" />
                                   }
                                   title={getAlertKindLabel('thunder')}
-                              />
+                                />
                                 <LegendItem
                                   icon={
                                     <SunMedium
@@ -1154,7 +1362,7 @@ export function ScreenPage(): React.ReactNode {
                                     />
                                   }
                                   title={getAlertKindLabel('heat')}
-                              />
+                                />
                                 <LegendItem
                                   icon={
                                     <Snowflake
@@ -1164,7 +1372,7 @@ export function ScreenPage(): React.ReactNode {
                                     />
                                   }
                                   title={getAlertKindLabel('cold')}
-                              />
+                                />
                                 <LegendItem
                                   icon={
                                     <CloudFog
@@ -1174,7 +1382,7 @@ export function ScreenPage(): React.ReactNode {
                                     />
                                   }
                                   title={getAlertKindLabel('fog')}
-                              />
+                                />
                               </div>
                             </ScrollArea>
                           </div>
@@ -1186,6 +1394,62 @@ export function ScreenPage(): React.ReactNode {
               </div>
             </div>
           </main>
+
+          <div className="pointer-events-auto absolute bottom-2 left-1/2 z-40 -translate-x-1/2">
+            <Dock
+              className={cn(
+                'mt-0 rounded-[var(--radius)] border-white/16 bg-black/30 shadow-[0_18px_60px_rgba(0,0,0,0.55)] ring-1 ring-white/10',
+                'supports-backdrop-blur:bg-black/22 backdrop-saturate-150',
+              )}
+              iconSize={44}
+              iconMagnification={70}
+              iconDistance={160}
+              direction="middle"
+            >
+              <DockIcon
+                role="button"
+                tabIndex={0}
+                aria-label="全屏"
+                title="全屏"
+                className={cn(
+                  'text-foreground/90 transition-colors',
+                  'hover:bg-white/7 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/25',
+                  isFullscreen && 'bg-white/8',
+                )}
+                onClick={() => void toggleFullscreen()}
+                onKeyDown={(e) => {
+                  if (e.key !== 'Enter' && e.key !== ' ') return;
+                  e.preventDefault();
+                  void toggleFullscreen();
+                }}
+              >
+                {isFullscreen ? (
+                  <Minimize2 className="h-5 w-5" strokeWidth={2.2} aria-hidden="true" />
+                ) : (
+                  <Maximize2 className="h-5 w-5" strokeWidth={2.2} aria-hidden="true" />
+                )}
+              </DockIcon>
+
+              <DockIcon
+                role="button"
+                tabIndex={0}
+                aria-label="定位到当前位置"
+                title="定位到当前位置"
+                className={cn(
+                  'text-foreground/90 transition-colors',
+                  'hover:bg-white/7 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/25',
+                )}
+                onClick={locateMe}
+                onKeyDown={(e) => {
+                  if (e.key !== 'Enter' && e.key !== ' ') return;
+                  e.preventDefault();
+                  locateMe();
+                }}
+              >
+                <LocateFixed className="h-5 w-5" strokeWidth={2.2} aria-hidden="true" />
+              </DockIcon>
+            </Dock>
+          </div>
         </div>
       </ScreenStage>
     </div>

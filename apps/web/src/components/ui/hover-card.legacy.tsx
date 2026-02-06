@@ -85,7 +85,7 @@ export function HoverCardContent(props: {
   return (
     <div
       className={cn(
-        'absolute left-0 top-full z-50 mt-2 w-max max-w-[520px] overflow-hidden rounded-[--radius] border border-white/10 bg-black/75 p-3 shadow-[0_18px_60px_rgba(0,0,0,0.55)] ring-1 ring-white/5 backdrop-blur-lg',
+        'absolute left-0 top-full z-50 mt-2 w-max max-w-[520px] overflow-hidden rounded-[var(--radius)] border border-white/10 bg-black/75 p-3 shadow-[0_18px_60px_rgba(0,0,0,0.55)] ring-1 ring-white/5 backdrop-blur-lg',
         props.className,
       )}
     >
@@ -93,4 +93,3 @@ export function HoverCardContent(props: {
     </div>
   );
 }
-
