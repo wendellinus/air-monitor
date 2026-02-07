@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 
-import type { AirDailyItem, AirHourlyItem } from '@go-practice/shared';
+import type { AirDailyItem, AirHourlyItem } from '@air-monitor/shared';
 import type { AirProvider } from '../../infra/qweather/qweather.providers';
 import { QWEATHER_AIR_PROVIDER } from '../../infra/qweather/qweather.tokens';
 import { AppError } from '../../shared/app-error';

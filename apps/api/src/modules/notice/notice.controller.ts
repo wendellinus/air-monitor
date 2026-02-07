@@ -1,7 +1,7 @@
 import { Controller, Get } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 
-import type { NoticeItem } from '@go-practice/shared';
+import type { NoticeItem } from '@air-monitor/shared';
 
 import { NoticeService } from './notice.service';
 import type { NoticeEntity } from './notice.repository';

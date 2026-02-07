@@ -1,5 +1,5 @@
 {
-  "name": "@go-practice/web",
+  "name": "@air-monitor/web",
   "private": true,
   "version": "0.1.0",
   "type": "module",
@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "@amap/amap-jsapi-loader": "^1.0.1",
-    "@go-practice/shared": "workspace:*",
+    "@air-monitor/shared": "workspace:*",
     "@radix-ui/react-scroll-area": "^1.2.10",
     "@radix-ui/react-slot": "^1.2.4",
     "@tanstack/react-query": "^5.66.0",

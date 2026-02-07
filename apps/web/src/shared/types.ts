@@ -1,4 +1,4 @@
-export type { ApiResponse } from '@go-practice/shared';
+export type { ApiResponse } from '@air-monitor/shared';
 
 export class ApiError extends Error {
   readonly code: number;

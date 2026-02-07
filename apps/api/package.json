@@ -1,5 +1,5 @@
 {
-  "name": "@go-practice/api",
+  "name": "@air-monitor/api",
   "private": true,
   "version": "0.1.0",
   "description": "NestJS API (ported from legacy Go implementation).",
@@ -22,7 +22,7 @@
     "seed": "ts-node prisma/seed.ts"
   },
   "dependencies": {
-    "@go-practice/shared": "workspace:*",
+    "@air-monitor/shared": "workspace:*",
     "@nestjs/common": "^10.4.4",
     "@nestjs/config": "^3.3.0",
     "@nestjs/core": "^10.4.4",

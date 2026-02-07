@@ -1,2 +1,2 @@
-export { UserRoles } from '@go-practice/shared';
-export type { UserRole } from '@go-practice/shared';
+export { UserRoles } from '@air-monitor/shared';
+export type { UserRole } from '@air-monitor/shared';

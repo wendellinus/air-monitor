@@ -1,4 +1,4 @@
-﻿# Beginner Guide: 项目功能 + 全量 API + 从配置到启动
+# Beginner Guide: 项目功能 + 全量 API + 从配置到启动
 
 面向对象：**只会一点基础语法**、第一次接触后端/NestJS 的同学。  
 目标：你照着做就能把项目跑起来，并且知道每个接口怎么用、怎么联调、哪里会踩坑。
@@ -147,7 +147,7 @@ JWT_ACCESS_SECRET=replace-with-your-signing-key
 JWT_REFRESH_SECRET=replace-with-a-different-long-random-string
 JWT_ACCESS_EXPIRES_IN=24h
 JWT_REFRESH_EXPIRES_IN=7d
-JWT_ISSUER=go-practice
+JWT_ISSUER=air-monitor
 ```
 
 生成随机 secret（Windows PowerShell 兼容写法）：

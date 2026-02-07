@@ -24,7 +24,7 @@ import type {
   NoticeItem,
   WeatherAlertItem,
   WeatherAlertResponse,
-} from '@go-practice/shared';
+} from '@air-monitor/shared';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';

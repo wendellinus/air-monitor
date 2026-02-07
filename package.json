@@ -1,5 +1,5 @@
 {
-  "name": "go-practice-monorepo",
+  "name": "air-monitor-monorepo",
   "private": true,
   "version": "0.1.0",
   "pnpm": {
@@ -9,18 +9,18 @@
   },
   "scripts": {
     "dev": "pnpm -r --parallel dev",
-    "dev:api": "pnpm --filter @go-practice/api dev",
-    "dev:web": "pnpm --filter @go-practice/web dev",
+    "dev:api": "pnpm --filter @air-monitor/api dev",
+    "dev:web": "pnpm --filter @air-monitor/web dev",
     "build": "pnpm -r --workspace-concurrency=1 build",
-    "build:api": "pnpm --filter @go-practice/shared build && pnpm --filter @go-practice/api build",
-    "build:web": "pnpm --filter @go-practice/shared build && pnpm --filter @go-practice/web build",
-    "lint": "pnpm --filter @go-practice/api lint",
-    "format": "pnpm --filter @go-practice/api format",
-    "test": "pnpm --filter @go-practice/shared build && pnpm --filter @go-practice/api test",
-    "test:e2e": "pnpm --filter @go-practice/api test:e2e",
-    "prisma:generate": "pnpm --filter @go-practice/api prisma:generate",
-    "prisma:migrate:dev": "pnpm --filter @go-practice/api prisma:migrate:dev",
-    "prisma:seed": "pnpm --filter @go-practice/api prisma:seed",
-    "prisma:studio": "pnpm --filter @go-practice/api prisma:studio"
+    "build:api": "pnpm --filter @air-monitor/shared build && pnpm --filter @air-monitor/api build",
+    "build:web": "pnpm --filter @air-monitor/shared build && pnpm --filter @air-monitor/web build",
+    "lint": "pnpm --filter @air-monitor/api lint",
+    "format": "pnpm --filter @air-monitor/api format",
+    "test": "pnpm --filter @air-monitor/shared build && pnpm --filter @air-monitor/api test",
+    "test:e2e": "pnpm --filter @air-monitor/api test:e2e",
+    "prisma:generate": "pnpm --filter @air-monitor/api prisma:generate",
+    "prisma:migrate:dev": "pnpm --filter @air-monitor/api prisma:migrate:dev",
+    "prisma:seed": "pnpm --filter @air-monitor/api prisma:seed",
+    "prisma:studio": "pnpm --filter @air-monitor/api prisma:studio"
   }
 }

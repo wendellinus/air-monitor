@@ -6,7 +6,7 @@ import type {
   OkResponseData,
   RefreshResponseData,
   RegisterResponseData,
-} from '@go-practice/shared';
+} from '@air-monitor/shared';
 
 import { AppError } from '../../shared/app-error';
 import { ErrorCodes } from '../../shared/error-codes';

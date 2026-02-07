@@ -1,5 +1,5 @@
 {
-  "name": "@go-practice/shared",
+  "name": "@air-monitor/shared",
   "private": true,
   "version": "0.1.0",
   "main": "dist/index.js",

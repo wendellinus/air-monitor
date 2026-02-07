@@ -2,7 +2,7 @@ version: '3.8'
 services:
   postgres:
     image: postgres:16
-    container_name: go-practice-db
+    container_name: air-monitor-db
     environment:
       POSTGRES_DB: go_practice_db
       POSTGRES_USER: postgres
@@ -14,7 +14,7 @@ services:
 
   redis:
     image: redis:7.2
-    container_name: go-practice-redis
+    container_name: air-monitor-redis
     ports:
       - "6379:6379"
     command: redis-server --save "" --appendonly no

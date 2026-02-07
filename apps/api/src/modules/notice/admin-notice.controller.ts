@@ -1,7 +1,7 @@
 import { Body, Controller, Get, Param, ParseIntPipe, Post, Put, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 
-import type { NoticeAdminListData, NoticeItem, OkResponseData } from '@go-practice/shared';
+import type { NoticeAdminListData, NoticeItem, OkResponseData } from '@air-monitor/shared';
 
 import { Roles } from '../../shared/authz/roles.decorator';
 import { RolesGuard } from '../../shared/authz/roles.guard';

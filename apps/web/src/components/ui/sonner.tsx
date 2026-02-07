@@ -32,8 +32,14 @@ const Toaster = ({ ...props }: ToasterProps) => {
             'group toast',
             // Keep all toast types visually consistent (don't scream "error" on big screens).
             'relative overflow-hidden border ring-1',
-            // Accent rail (colored per type via classNames.{info|error|...}).
-            "before:content-[''] before:absolute before:inset-y-0 before:left-0 before:w-[3px] before:bg-white/0",
+            '[--toast-accent:transparent] [--normal-border:rgba(255,255,255,0.18)] [--toast-ring:rgba(255,255,255,0.10)]',
+            'data-[type=info]:[--toast-accent:rgba(103,232,249,0.72)] data-[type=info]:[--normal-border:rgba(165,243,252,0.30)] data-[type=info]:[--toast-ring:rgba(165,243,252,0.18)]',
+            'data-[type=success]:[--toast-accent:rgba(110,231,183,0.72)] data-[type=success]:[--normal-border:rgba(167,243,208,0.28)] data-[type=success]:[--toast-ring:rgba(167,243,208,0.18)]',
+            'data-[type=warning]:[--toast-accent:rgba(252,211,77,0.76)] data-[type=warning]:[--normal-border:rgba(253,230,138,0.32)] data-[type=warning]:[--toast-ring:rgba(253,230,138,0.18)]',
+            'data-[type=error]:[--toast-accent:rgba(251,113,133,0.76)] data-[type=error]:[--normal-border:rgba(254,205,211,0.30)] data-[type=error]:[--toast-ring:rgba(254,205,211,0.18)]',
+            // Accent rail picks color from --toast-accent.
+            "before:content-[''] before:absolute before:inset-y-0 before:left-0 before:w-[3px] before:bg-[var(--toast-accent)]",
+            'ring-[color:var(--toast-ring)]',
             'rounded-[var(--radius)] shadow-[0_18px_60px_rgba(0,0,0,0.55)] backdrop-blur-xl',
           ].join(' '),
           title: 'text-[13px] font-semibold tracking-tight text-foreground/95',
@@ -42,12 +48,13 @@ const Toaster = ({ ...props }: ToasterProps) => {
             'h-8 rounded-[calc(var(--radius)-6px)] bg-primary px-3 text-xs font-semibold text-primary-foreground hover:opacity-90',
           cancelButton:
             'h-8 rounded-[calc(var(--radius)-6px)] bg-white/8 px-3 text-xs font-semibold text-muted-foreground hover:bg-white/10',
-          // Subtle per-type differentiation: same base glass, but a soft border tint + left rail.
-          default: 'border-white/14 ring-white/10 before:bg-white/0',
-          info: 'border-cyan-200/30 ring-cyan-200/12 before:bg-cyan-300/70',
-          success: 'border-emerald-200/26 ring-emerald-200/12 before:bg-emerald-300/70',
-          warning: 'border-amber-200/32 ring-amber-200/12 before:bg-amber-300/70',
-          error: 'border-rose-200/30 ring-rose-200/12 before:bg-rose-300/70',
+          // Keep type class slots empty: Sonner applies `default` to all toasts in v2.
+          // Type differences are handled in `toast` via data-[type=*] variants above.
+          default: '',
+          info: '',
+          success: '',
+          warning: '',
+          error: '',
         },
       }}
       {...props}

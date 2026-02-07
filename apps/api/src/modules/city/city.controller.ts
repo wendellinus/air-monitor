@@ -1,7 +1,7 @@
 import { Controller, Get, Query } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 
-import type { CityItem } from '@go-practice/shared';
+import type { CityItem } from '@air-monitor/shared';
 
 import { CityService } from './city.service';
 import { LookupCityQueryDto } from './dto/lookup-city-query.dto';

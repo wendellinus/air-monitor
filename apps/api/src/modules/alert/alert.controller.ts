@@ -1,7 +1,7 @@
 import { Controller, Get, Query } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 
-import type { WeatherAlertResponse } from '@go-practice/shared';
+import type { WeatherAlertResponse } from '@air-monitor/shared';
 
 import { AlertService } from './alert.service';
 import { CityIdQueryDto } from './dto/city-id-query.dto';

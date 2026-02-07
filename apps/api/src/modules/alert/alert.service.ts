@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 
-import type { WeatherAlertResponse } from '@go-practice/shared';
+import type { WeatherAlertResponse } from '@air-monitor/shared';
 
 import type { AlertProvider } from '../../infra/qweather/qweather.providers';
 import { QWEATHER_ALERT_PROVIDER } from '../../infra/qweather/qweather.tokens';

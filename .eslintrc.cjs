@@ -15,6 +15,19 @@ module.exports = {
     jest: true
   },
   ignorePatterns: ["dist/**", "node_modules/**"],
+  overrides: [
+    {
+      files: ["apps/web/src/**/*.{ts,tsx}"],
+      rules: {
+        "import/no-unresolved": [
+          "error",
+          {
+            ignore: ["^@/"]
+          }
+        ]
+      }
+    }
+  ],
   rules: {
     "@typescript-eslint/no-explicit-any": "error",
 

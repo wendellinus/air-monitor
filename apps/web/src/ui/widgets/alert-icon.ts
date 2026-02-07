@@ -1,4 +1,4 @@
-import type { WeatherAlertItem } from '@go-practice/shared';
+import type { WeatherAlertItem } from '@air-monitor/shared';
 
 import coldUrl from '@/assets/alert-icons/cold.svg?url';
 import defaultUrl from '@/assets/alert-icons/default.svg?url';

@@ -1,7 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import * as bcrypt from 'bcryptjs';
 
-import type { UserListData, UserListItem } from '@go-practice/shared';
+import type { UserListData, UserListItem } from '@air-monitor/shared';
 
 import { AppError } from '../../shared/app-error';
 import type { UserRole } from '../../shared/authz/user-role';

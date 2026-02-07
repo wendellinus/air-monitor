@@ -1,6 +1,6 @@
 import React from 'react';
 
-import type { AirNowItem, CityItem } from '@go-practice/shared';
+import type { AirNowItem, CityItem } from '@air-monitor/shared';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';

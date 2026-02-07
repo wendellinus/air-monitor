@@ -1,7 +1,7 @@
 import { Controller, Get, Query } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 
-import type { AirDailyItem, AirHourlyItem, AirNowItem } from '@go-practice/shared';
+import type { AirDailyItem, AirHourlyItem, AirNowItem } from '@air-monitor/shared';
 
 import { AirService } from './air.service';
 import { CityIdQueryDto } from './dto/city-id-query.dto';

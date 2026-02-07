@@ -1,12 +1,11 @@
-import type { LoginRequest, LoginResponseData } from '@air-monitor/shared';
-import { ArrowLeft, GalleryVerticalEnd } from 'lucide-react';
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { ArrowLeft, GalleryVerticalEnd } from 'lucide-react';
+
+import type { RegisterRequest, RegisterResponseData } from '@air-monitor/shared';
 
 import { api } from '../shared/api';
-import { setTokens } from '../shared/auth';
-import type { ApiResponse, Tokens } from '../shared/types';
-
+import type { ApiResponse } from '../shared/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
@@ -42,30 +41,67 @@ function GoogleIcon(): React.ReactNode {
   );
 }
 
-export function AdminLoginPage(): React.ReactNode {
+export function AdminRegisterPage(): React.ReactNode {
   const navigate = useNavigate();
   const usernameId = React.useId();
+  const emailId = React.useId();
   const passwordId = React.useId();
+  const confirmPasswordId = React.useId();
 
   const [username, setUsername] = React.useState('');
+  const [email, setEmail] = React.useState('');
   const [password, setPassword] = React.useState('');
+  const [confirmPassword, setConfirmPassword] = React.useState('');
   const [error, setError] = React.useState<string | null>(null);
+  const [success, setSuccess] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(false);
+  const redirectTimerRef = React.useRef<number | null>(null);
+
+  React.useEffect(() => {
+    return () => {
+      if (redirectTimerRef.current !== null) {
+        window.clearTimeout(redirectTimerRef.current);
+      }
+    };
+  }, []);
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
     setError(null);
-    setLoading(true);
+    setSuccess(null);
 
+    const normalizedUsername = username.trim();
+    const normalizedEmail = email.trim();
+
+    if (!normalizedUsername) {
+      setError('请输入用户名');
+      return;
+    }
+
+    if (password.length < 6) {
+      setError('密码至少 6 位');
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setError('两次输入的密码不一致');
+      return;
+    }
+
+    setLoading(true);
     try {
-      const payload: LoginRequest = { username: username.trim(), password };
-      const response = await api.post<ApiResponse<LoginResponseData>>('/login', payload);
-      const data = response.data.data;
-      const tokens: Tokens = { accessToken: data.token, refreshToken: data.refreshToken };
-      setTokens(tokens);
-      navigate('/admin', { replace: true });
+      const payload: RegisterRequest = {
+        username: normalizedUsername,
+        password,
+        email: normalizedEmail || undefined,
+      };
+      await api.post<ApiResponse<RegisterResponseData>>('/register', payload);
+      setSuccess('注册成功，正在跳转登录页...');
+      redirectTimerRef.current = window.setTimeout(() => {
+        navigate('/admin/login', { replace: true });
+      }, 900);
     } catch (errorValue) {
-      setError(errorValue instanceof Error ? errorValue.message : '登录失败，请稍后再试');
+      setError(errorValue instanceof Error ? errorValue.message : '注册失败，请稍后再试');
     } finally {
       setLoading(false);
     }
@@ -75,12 +111,9 @@ export function AdminLoginPage(): React.ReactNode {
     <div className="admin-theme admin-auth-bg min-h-svh">
       <div className="mx-auto flex min-h-svh w-full max-w-sm flex-col justify-center gap-6 p-6 md:p-10">
         <div className="flex items-center justify-start text-sm">
-          <Link
-            className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1.5"
-            to="/screen"
-          >
+          <Link className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1.5" to="/admin/login">
             <ArrowLeft className="size-4" />
-            返回大屏
+            返回登录
           </Link>
         </div>
 
@@ -96,14 +129,11 @@ export function AdminLoginPage(): React.ReactNode {
                 </div>
                 <span className="sr-only">空气监测后台</span>
               </div>
-              <h1 className="text-xl font-bold">欢迎登录后台</h1>
+              <h1 className="text-xl font-bold">创建后台账号</h1>
               <p className="text-muted-foreground text-sm">
-                没有账号？
-                <Link
-                  className="text-foreground ml-1 underline underline-offset-4"
-                  to="/admin/register"
-                >
-                  立即注册
+                已有账号？
+                <Link className="text-foreground ml-1 underline underline-offset-4" to="/admin/login">
+                  去登录
                 </Link>
               </p>
             </div>
@@ -116,35 +146,70 @@ export function AdminLoginPage(): React.ReactNode {
                 id={usernameId}
                 autoComplete="username"
                 placeholder="请输入用户名"
-                required
                 value={username}
                 onChange={(event) => setUsername(event.target.value)}
               />
             </div>
 
             <div className="grid gap-2">
-              <label className="text-sm font-medium" htmlFor={passwordId}>
-                密码
+              <label className="text-sm font-medium" htmlFor={emailId}>
+                邮箱（可选）
               </label>
               <Input
-                id={passwordId}
-                autoComplete="current-password"
-                placeholder="请输入密码"
-                required
-                type="password"
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
+                id={emailId}
+                autoComplete="email"
+                placeholder="m@example.com"
+                type="email"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
               />
             </div>
 
-            {error ? (
-              <p aria-live="polite" className="text-destructive text-sm">
-                {error}
-              </p>
-            ) : null}
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid gap-2">
+                <label className="text-sm font-medium" htmlFor={passwordId}>
+                  密码
+                </label>
+                <Input
+                  id={passwordId}
+                  autoComplete="new-password"
+                  placeholder="至少 6 位"
+                  type="password"
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                />
+              </div>
 
-            <Button className="w-full" disabled={loading || !username || !password} type="submit">
-              {loading ? '登录中...' : '登录'}
+              <div className="grid gap-2">
+                <label className="text-sm font-medium" htmlFor={confirmPasswordId}>
+                  确认密码
+                </label>
+                <Input
+                  id={confirmPasswordId}
+                  autoComplete="new-password"
+                  placeholder="再次输入"
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(event) => setConfirmPassword(event.target.value)}
+                />
+              </div>
+            </div>
+
+            <div className="min-h-5">
+              {error ? (
+                <p aria-live="polite" className="text-destructive text-sm">
+                  {error}
+                </p>
+              ) : null}
+              {success ? (
+                <p aria-live="polite" className="text-sm text-emerald-600">
+                  {success}
+                </p>
+              ) : null}
+            </div>
+
+            <Button className="w-full" disabled={loading || !username || !password || !confirmPassword} type="submit">
+              {loading ? '创建中...' : '创建账号'}
             </Button>
 
             <div className="relative text-center text-sm">
@@ -179,3 +244,4 @@ export function AdminLoginPage(): React.ReactNode {
     </div>
   );
 }
+

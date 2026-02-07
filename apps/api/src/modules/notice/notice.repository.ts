@@ -19,9 +19,56 @@ export type NoticeEntity = {
   source: string;
 };
 
+const noticeSelect = {
+  id: true,
+  title: true,
+  content: true,
+  startTime: true,
+  endTime: true,
+  status: true,
+  level: true,
+  alertId: true,
+  eventType: true,
+  severity: true,
+  colorCode: true,
+  source: true,
+} as const;
+
+type NoticeRow = {
+  id: number;
+  title: string;
+  content: string | null;
+  startTime: Date;
+  endTime: Date;
+  status: string;
+  level: string;
+  alertId: string | null;
+  eventType: string | null;
+  severity: string | null;
+  colorCode: string | null;
+  source: string;
+};
+
 @Injectable()
 export class NoticeRepository {
   constructor(private readonly prisma: PrismaService) {}
+
+  private toEntity(row: NoticeRow): NoticeEntity {
+    return {
+      id: row.id,
+      title: row.title,
+      content: row.content ?? undefined,
+      startTime: row.startTime,
+      endTime: row.endTime,
+      status: row.status,
+      level: row.level,
+      alertId: row.alertId ?? undefined,
+      eventType: row.eventType ?? undefined,
+      severity: row.severity ?? undefined,
+      colorCode: row.colorCode ?? undefined,
+      source: row.source,
+    };
+  }
 
   async create(n: Omit<NoticeEntity, 'id'>): Promise<void> {
     await this.prisma.notice.create({
@@ -67,42 +114,16 @@ export class NoticeRepository {
   }
 
   async getActiveNotices(now: Date): Promise<NoticeEntity[]> {
-    const rows = await this.prisma.notice.findMany({
+    const rows: NoticeRow[] = await this.prisma.notice.findMany({
       where: {
         status: NoticeStatus.Published,
         startTime: { lte: now },
         endTime: { gte: now },
       },
       orderBy: { createdAt: 'desc' },
-      select: {
-        id: true,
-        title: true,
-        content: true,
-        startTime: true,
-        endTime: true,
-        status: true,
-        level: true,
-        alertId: true,
-        eventType: true,
-        severity: true,
-        colorCode: true,
-        source: true,
-      },
+      select: noticeSelect,
     });
-    return rows.map((r) => ({
-      id: r.id,
-      title: r.title,
-      content: r.content ?? undefined,
-      startTime: r.startTime,
-      endTime: r.endTime,
-      status: r.status,
-      level: r.level,
-      alertId: r.alertId ?? undefined,
-      eventType: r.eventType ?? undefined,
-      severity: r.severity ?? undefined,
-      colorCode: r.colorCode ?? undefined,
-      source: r.source,
-    }));
+    return rows.map((row) => this.toEntity(row));
   }
 
   async listAdmin(page: number, pageSize: number, status?: string): Promise<{ list: NoticeEntity[]; total: number }> {
@@ -114,75 +135,24 @@ export class NoticeRepository {
         orderBy: { id: 'desc' },
         skip: (page - 1) * pageSize,
         take: pageSize,
-        select: {
-          id: true,
-          title: true,
-          content: true,
-          startTime: true,
-          endTime: true,
-          status: true,
-          level: true,
-          alertId: true,
-          eventType: true,
-          severity: true,
-          colorCode: true,
-          source: true,
-        },
+        select: noticeSelect,
       }),
     ]);
+    const typedRows = rows as NoticeRow[];
 
     return {
-      total,
-      list: rows.map((r) => ({
-        id: r.id,
-        title: r.title,
-        content: r.content ?? undefined,
-        startTime: r.startTime,
-        endTime: r.endTime,
-        status: r.status,
-        level: r.level,
-        alertId: r.alertId ?? undefined,
-        eventType: r.eventType ?? undefined,
-        severity: r.severity ?? undefined,
-        colorCode: r.colorCode ?? undefined,
-        source: r.source,
-      })),
+      total: total as number,
+      list: typedRows.map((row) => this.toEntity(row)),
     };
   }
 
   async findById(id: number): Promise<NoticeEntity | null> {
-    const r = await this.prisma.notice.findUnique({
+    const r = (await this.prisma.notice.findUnique({
       where: { id },
-      select: {
-        id: true,
-        title: true,
-        content: true,
-        startTime: true,
-        endTime: true,
-        status: true,
-        level: true,
-        alertId: true,
-        eventType: true,
-        severity: true,
-        colorCode: true,
-        source: true,
-      },
-    });
+      select: noticeSelect,
+    })) as NoticeRow | null;
     if (!r) return null;
-    return {
-      id: r.id,
-      title: r.title,
-      content: r.content ?? undefined,
-      startTime: r.startTime,
-      endTime: r.endTime,
-      status: r.status,
-      level: r.level,
-      alertId: r.alertId ?? undefined,
-      eventType: r.eventType ?? undefined,
-      severity: r.severity ?? undefined,
-      colorCode: r.colorCode ?? undefined,
-      source: r.source,
-    };
+    return this.toEntity(r);
   }
 
   async updateById(id: number, patch: Partial<Omit<NoticeEntity, 'id'>>): Promise<void> {
