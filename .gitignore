@@ -23,7 +23,6 @@ log/
 *.log
 
 # Local tooling / temp
-.agent/
 tmp-img/
 
 # OS files
