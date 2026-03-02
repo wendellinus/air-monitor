@@ -1,10 +1,11 @@
-import React from 'react';
+﻿import React from 'react';
 import * as echarts from 'echarts';
 import {
   AlertTriangle,
   Building2,
   CloudFog,
   CloudRain,
+  Heart,
   LocateFixed,
   MapPin,
   Maximize2,
@@ -32,12 +33,14 @@ import { Dock, DockIcon } from '@/components/ui/dock';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { gcj02ToWgs84, wgs84ToGcj02, type LonLat } from '@/lib/coords';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
-import { api } from '../shared/api';
-import { ApiError, type ApiResponse } from '../shared/types';
+import { api } from '@/shared/api';
+import { getAccessToken } from '@/shared/auth';
+import { ApiError, type ApiResponse } from '@/shared/types';
 import { AMapPanel } from './widgets/amap-panel';
 import {
   getAlertAccentColor,
@@ -281,10 +284,15 @@ export function ScreenPage(): React.ReactNode {
   const [searchResults, setSearchResults] = React.useState<CityItem[]>([]);
   const [searchLoading, setSearchLoading] = React.useState<boolean>(false);
   const [searchError, setSearchError] = React.useState<string | null>(null);
+  const [favoriteCities, setFavoriteCities] = React.useState<CityItem[]>([]);
+  const [favoritesLoading, setFavoritesLoading] = React.useState<boolean>(false);
+  const [favoritesOpen, setFavoritesOpen] = React.useState<boolean>(false);
+  const [favoriteSubmittingCityId, setFavoriteSubmittingCityId] = React.useState<string | null>(null);
   const [isFullscreen, setIsFullscreen] = React.useState<boolean>(
     () => Boolean(typeof document !== 'undefined' && document.fullscreenElement),
   );
 
+  const canManageFavorites = Boolean(getAccessToken());
   const mapLookupAbortRef = React.useRef<AbortController | null>(null);
   const searchAbortRef = React.useRef<AbortController | null>(null);
   const searchInputRef = React.useRef<HTMLInputElement | null>(null);
@@ -318,6 +326,35 @@ export function ScreenPage(): React.ReactNode {
   React.useEffect(() => {
     selectedRef.current = selected;
   }, [selected]);
+
+  React.useEffect(() => {
+    if (!canManageFavorites) {
+      setFavoriteCities([]);
+      return;
+    }
+
+    let mounted = true;
+    setFavoritesLoading(true);
+    api
+      .get<ApiResponse<CityItem[]>>('/user/favorites/cities')
+      .then((res) => {
+        if (!mounted) return;
+        setFavoriteCities(Array.isArray(res.data.data) ? res.data.data : []);
+      })
+      .catch((error: unknown) => {
+        if (!mounted) return;
+        const msg = humanizeError(error);
+        toastErrorDeduped('favorite-load', msg, 3000);
+      })
+      .finally(() => {
+        if (!mounted) return;
+        setFavoritesLoading(false);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, [canManageFavorites]);
 
   React.useEffect(() => {
     const t = setInterval(() => setNow(new Date()), 1000);
@@ -438,6 +475,8 @@ export function ScreenPage(): React.ReactNode {
           toast.info('该位置无法识别到有效城市（可能在海面/无人区），请选陆地位置。');
           return;
         }
+        // Unify selection visuals: when city is resolved, keep only selected-city mask.
+        setPicked(null);
         setSelected(found);
       })
       .catch((e: unknown) => {
@@ -807,6 +846,45 @@ export function ScreenPage(): React.ReactNode {
   const tone = aqiTone(air?.aqi ?? 0);
 
   const trimmedSearchKeyword = searchKeyword.trim();
+  const favoriteCitySet = React.useMemo(
+    () => new Set(favoriteCities.map((city) => city.cityId)),
+    [favoriteCities],
+  );
+  const toggleFavorite = React.useCallback(
+    async (city: CityItem): Promise<void> => {
+      if (!canManageFavorites) {
+        toast.info('请先登录后台账号，再使用收藏功能。');
+        return;
+      }
+      if (favoriteSubmittingCityId) return;
+
+      const isFavorite = favoriteCitySet.has(city.cityId);
+      setFavoriteSubmittingCityId(city.cityId);
+      try {
+        if (isFavorite) {
+          await api.delete(`/user/favorites/cities/${city.cityId}`);
+          setFavoriteCities((current) => current.filter((item) => item.cityId !== city.cityId));
+          if (favoritesOpen && selected?.cityId === city.cityId) {
+            setFavoritesOpen(false);
+          }
+          return;
+        }
+
+        await api.post('/user/favorites/cities', city);
+        setFavoriteCities((current) => {
+          const exists = current.some((item) => item.cityId === city.cityId);
+          if (exists) return current;
+          return [city, ...current].slice(0, 30);
+        });
+      } catch (error: unknown) {
+        const msg = humanizeError(error);
+        toastErrorDeduped('favorite-save', msg, 2500);
+      } finally {
+        setFavoriteSubmittingCityId(null);
+      }
+    },
+    [canManageFavorites, favoriteCitySet, favoriteSubmittingCityId, favoritesOpen, selected?.cityId],
+  );
   const marquee = notices.length > 0 ? notices.map((n) => n.title).join(' · ') : '暂无公告';
 
   const selectedAlerts: WeatherAlertItem[] = Array.isArray(alerts?.alerts) ? alerts.alerts : [];
@@ -825,15 +903,25 @@ export function ScreenPage(): React.ReactNode {
   })();
 
   const mapMarkers = React.useMemo(() => {
-    return cities
-      .map((c) => {
-        const lon = toNumber(c.lon);
-        const lat = toNumber(c.lat);
-        if (lon === null || lat === null) return null;
-        return { id: c.cityId, name: c.name, lon, lat };
-      })
-      .filter((v): v is { id: string; name: string; lon: number; lat: number } => v !== null);
-  }, [cities]);
+    const mergedCities: CityItem[] = [
+      ...cities,
+      ...favoriteCities,
+      ...(selected ? [selected] : []),
+    ];
+    const seen = new Set<string>();
+    const markers: Array<{ id: string; name: string; lon: number; lat: number }> = [];
+
+    for (const city of mergedCities) {
+      if (seen.has(city.cityId)) continue;
+      const lon = toNumber(city.lon);
+      const lat = toNumber(city.lat);
+      if (lon === null || lat === null) continue;
+      seen.add(city.cityId);
+      markers.push({ id: city.cityId, name: city.name, lon, lat });
+    }
+
+    return markers;
+  }, [cities, favoriteCities, selected]);
 
   const selectedCityId = selected?.cityId ?? null;
   const renderCityMarker = React.useCallback(
@@ -856,11 +944,15 @@ export function ScreenPage(): React.ReactNode {
                 isSelected ? 'bg-primary/12' : 'bg-cyan-200/10',
               )}
             />
-            <Building2
-              className="relative h-[18px] w-[18px]"
-              strokeWidth={2.2}
-              aria-hidden="true"
-            />
+            {isSelected ? (
+              <MapPin className="relative h-[18px] w-[18px]" strokeWidth={2.2} aria-hidden="true" />
+            ) : (
+              <Building2
+                className="relative h-[18px] w-[18px]"
+                strokeWidth={2.2}
+                aria-hidden="true"
+              />
+            )}
           </div>
           <div
             className={cn(
@@ -904,6 +996,7 @@ export function ScreenPage(): React.ReactNode {
           renderMarker={renderCityMarker}
           onMarkerClick={(id) => {
             const found = cities.find((c) => c.cityId === id) ?? null;
+            setPicked(null);
             setSelected(found);
           }}
           onMapClick={onMapClick}
@@ -1088,6 +1181,7 @@ export function ScreenPage(): React.ReactNode {
                           e.preventDefault();
                           const first = searchResults[0] ?? null;
                           if (!first) return;
+                          setPicked(null);
                           setSelected(first);
                           closeSearch();
                         }}
@@ -1145,6 +1239,7 @@ export function ScreenPage(): React.ReactNode {
                                 'hover:bg-white/6 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/25',
                               )}
                               onClick={() => {
+                                setPicked(null);
                                 setSelected(c);
                                 closeSearch();
                               }}
@@ -1183,6 +1278,43 @@ export function ScreenPage(): React.ReactNode {
                           ? `${selected.adm1}${selected.adm2 ? ` · ${selected.adm2}` : ''}`
                           : '点击热门城市或地图定位选择城市'}
                       </CardDescription>
+                      {selected ? (
+                        <div className="mt-3 flex justify-end">
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            className="h-8 rounded-xl border border-white/8 bg-black/8 px-2.5 text-foreground/85 ring-1 ring-white/8 hover:bg-white/7"
+                            onClick={() => void toggleFavorite(selected)}
+                            disabled={favoriteSubmittingCityId === selected.cityId}
+                            aria-label={
+                              favoriteCitySet.has(selected.cityId)
+                                ? 'Remove from favorites'
+                                : 'Add to favorites'
+                            }
+                            title={
+                              favoriteCitySet.has(selected.cityId)
+                                ? 'Remove from favorites'
+                                : 'Add to favorites'
+                            }
+                          >
+                            <Heart
+                              className={cn(
+                                'mr-1.5 h-4 w-4',
+                                favoriteCitySet.has(selected.cityId)
+                                  ? 'fill-rose-400 text-rose-300'
+                                  : 'text-foreground/75',
+                              )}
+                              strokeWidth={2.1}
+                            />
+                            {favoriteSubmittingCityId === selected.cityId
+                              ? '处理中...'
+                              : favoriteCitySet.has(selected.cityId)
+                                ? '已收藏'
+                                : '收藏'}
+                          </Button>
+                        </div>
+                      ) : null}
                     </CardHeader>
                     <CardContent className="space-y-4 pt-0">
                       <div className="flex items-end justify-between">
@@ -1256,8 +1388,14 @@ export function ScreenPage(): React.ReactNode {
                                   selected?.cityId === c.cityId &&
                                     'border-primary/25 bg-primary/12 text-foreground ring-primary/20',
                                 )}
-                                onClick={() => setSelected(c)}
+                                onClick={() => {
+                                  setPicked(null);
+                                  setSelected(c);
+                                }}
                               >
+                                {favoriteCitySet.has(c.cityId) ? (
+                                  <Heart className="mr-1.5 h-3.5 w-3.5 fill-rose-400 text-rose-300" />
+                                ) : null}
                                 {c.name}
                               </Button>
                             ))}
@@ -1433,6 +1571,33 @@ export function ScreenPage(): React.ReactNode {
               <DockIcon
                 role="button"
                 tabIndex={0}
+                aria-label="收藏城市列表"
+                title="收藏城市列表"
+                className={cn(
+                  'text-foreground/90 transition-colors',
+                  'hover:bg-white/7 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/25',
+                  favoriteCities.length > 0 && 'bg-white/8',
+                )}
+                onClick={() => setFavoritesOpen(true)}
+                onKeyDown={(e) => {
+                  if (e.key !== 'Enter' && e.key !== ' ') return;
+                  e.preventDefault();
+                  setFavoritesOpen(true);
+                }}
+              >
+                <div className="relative">
+                  <Heart className="h-5 w-5" strokeWidth={2.2} aria-hidden="true" />
+                  {favoriteCities.length > 0 ? (
+                    <span className="absolute -right-2.5 -top-2.5 grid min-w-4 place-items-center rounded-full bg-rose-500 px-1 text-[10px] font-semibold leading-4 text-white">
+                      {Math.min(favoriteCities.length, 99)}
+                    </span>
+                  ) : null}
+                </div>
+              </DockIcon>
+
+              <DockIcon
+                role="button"
+                tabIndex={0}
                 aria-label="定位到当前位置"
                 title="定位到当前位置"
                 className={cn(
@@ -1449,6 +1614,85 @@ export function ScreenPage(): React.ReactNode {
                 <LocateFixed className="h-5 w-5" strokeWidth={2.2} aria-hidden="true" />
               </DockIcon>
             </Dock>
+
+            <Sheet open={favoritesOpen} onOpenChange={setFavoritesOpen}>
+              <SheetContent
+                side="bottom"
+                className="mx-auto max-h-[65vh] w-[min(620px,calc(100vw-16px))] rounded-t-2xl border-white/14 bg-black/70 p-0 text-foreground backdrop-blur-xl"
+              >
+                <div className="p-4">
+                  <SheetHeader>
+                    <SheetTitle className="text-left text-base">收藏城市</SheetTitle>
+                    <SheetDescription className="text-left">
+                      {canManageFavorites
+                        ? '点击城市可快速切换，收藏会绑定到当前登录用户。'
+                        : '当前未登录，登录后才能使用用户收藏同步。'}
+                    </SheetDescription>
+                  </SheetHeader>
+                </div>
+
+                <div className="px-4 pb-4">
+                  {!canManageFavorites ? (
+                    <div className="rounded-xl border border-dashed border-white/14 bg-black/35 px-3 py-3 text-sm text-muted-foreground">
+                      请先前往
+                      <a className="px-1 text-primary underline underline-offset-4" href="/admin/login">
+                        后台登录
+                      </a>
+                      ，再使用收藏城市功能。
+                    </div>
+                  ) : favoritesLoading ? (
+                    <div className="rounded-xl border border-white/10 bg-black/35 px-3 py-3 text-sm text-muted-foreground">
+                      正在加载收藏城市...
+                    </div>
+                  ) : favoriteCities.length === 0 ? (
+                    <div className="rounded-xl border border-dashed border-white/14 bg-black/35 px-3 py-3 text-sm text-muted-foreground">
+                      暂无收藏城市，先在左侧城市信息卡片里点“收藏”。
+                    </div>
+                  ) : (
+                    <ScrollArea className="h-[min(44vh,360px)]">
+                      <div className="space-y-2 pr-2">
+                        {favoriteCities.map((city) => (
+                          <button
+                            key={city.cityId}
+                            type="button"
+                            className={cn(
+                              'flex w-full items-center justify-between rounded-xl border border-white/10 bg-black/35 px-3 py-2 text-left transition-colors',
+                              'hover:bg-white/7 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/25',
+                              selected?.cityId === city.cityId && 'border-primary/30 bg-primary/12',
+                            )}
+                            onClick={() => {
+                              setSelected(city);
+                              setPicked(null);
+                              setFavoritesOpen(false);
+                            }}
+                          >
+                            <div className="min-w-0">
+                              <div className="truncate text-sm font-medium">{city.name}</div>
+                              <div className="mt-0.5 truncate text-xs text-muted-foreground">
+                                {[city.adm1, city.adm2, city.country].filter(Boolean).join(' · ')}
+                              </div>
+                            </div>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="ghost"
+                              className="ml-3 h-8 shrink-0 text-xs"
+                              disabled={favoriteSubmittingCityId === city.cityId}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                void toggleFavorite(city);
+                              }}
+                            >
+                              取消收藏
+                            </Button>
+                          </button>
+                        ))}
+                      </div>
+                    </ScrollArea>
+                  )}
+                </div>
+              </SheetContent>
+            </Sheet>
           </div>
         </div>
       </ScreenStage>

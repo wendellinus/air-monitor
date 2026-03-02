@@ -9,6 +9,7 @@ export type {
   AdminResetPasswordRequest,
   AdminSetUserRoleRequest,
   AdminSetUserStatusRequest,
+  UserFavoriteCityCreateRequest,
   UserListData,
   UserListItem,
 } from './contracts/user';

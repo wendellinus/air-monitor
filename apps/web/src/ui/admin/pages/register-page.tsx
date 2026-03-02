@@ -1,13 +1,13 @@
+import type { RegisterRequest, RegisterResponseData } from '@air-monitor/shared';
+import { ArrowLeft, GalleryVerticalEnd } from 'lucide-react';
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, GalleryVerticalEnd } from 'lucide-react';
 
-import type { RegisterRequest, RegisterResponseData } from '@air-monitor/shared';
-
-import { api } from '../shared/api';
-import type { ApiResponse } from '../shared/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { api } from '@/shared/api';
+import { useI18n } from '@/shared/i18n';
+import type { ApiResponse } from '@/shared/types';
 
 function AppleIcon(): React.ReactNode {
   return (
@@ -43,6 +43,7 @@ function GoogleIcon(): React.ReactNode {
 
 export function AdminRegisterPage(): React.ReactNode {
   const navigate = useNavigate();
+  const { t } = useI18n();
   const usernameId = React.useId();
   const emailId = React.useId();
   const passwordId = React.useId();
@@ -74,17 +75,17 @@ export function AdminRegisterPage(): React.ReactNode {
     const normalizedEmail = email.trim();
 
     if (!normalizedUsername) {
-      setError('请输入用户名');
+      setError(t('auth.error.usernameRequired'));
       return;
     }
 
     if (password.length < 6) {
-      setError('密码至少 6 位');
+      setError(t('auth.error.passwordMin', { min: 6 }));
       return;
     }
 
     if (password !== confirmPassword) {
-      setError('两次输入的密码不一致');
+      setError(t('auth.error.passwordMismatch'));
       return;
     }
 
@@ -96,12 +97,14 @@ export function AdminRegisterPage(): React.ReactNode {
         email: normalizedEmail || undefined,
       };
       await api.post<ApiResponse<RegisterResponseData>>('/register', payload);
-      setSuccess('注册成功，正在跳转登录页...');
+      setSuccess(t('auth.register.successRedirect'));
       redirectTimerRef.current = window.setTimeout(() => {
         navigate('/admin/login', { replace: true });
       }, 900);
     } catch (errorValue) {
-      setError(errorValue instanceof Error ? errorValue.message : '注册失败，请稍后再试');
+      setError(
+        errorValue instanceof Error ? errorValue.message : t('auth.register.errorFallback'),
+      );
     } finally {
       setLoading(false);
     }
@@ -111,9 +114,12 @@ export function AdminRegisterPage(): React.ReactNode {
     <div className="admin-theme admin-auth-bg min-h-svh">
       <div className="mx-auto flex min-h-svh w-full max-w-sm flex-col justify-center gap-6 p-6 md:p-10">
         <div className="flex items-center justify-start text-sm">
-          <Link className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1.5" to="/admin/login">
+          <Link
+            className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1.5"
+            to="/admin/login"
+          >
             <ArrowLeft className="size-4" />
-            返回登录
+            {t('auth.register.backToLogin')}
           </Link>
         </div>
 
@@ -127,25 +133,28 @@ export function AdminRegisterPage(): React.ReactNode {
                 <div className="flex size-8 items-center justify-center rounded-md bg-primary/10 text-primary">
                   <GalleryVerticalEnd className="size-6" />
                 </div>
-                <span className="sr-only">空气监测后台</span>
+                <span className="sr-only">{t('auth.appName')}</span>
               </div>
-              <h1 className="text-xl font-bold">创建后台账号</h1>
+              <h1 className="text-xl font-bold">{t('auth.register.title')}</h1>
               <p className="text-muted-foreground text-sm">
-                已有账号？
-                <Link className="text-foreground ml-1 underline underline-offset-4" to="/admin/login">
-                  去登录
+                {t('auth.register.subtitlePrefix')}
+                <Link
+                  className="text-foreground ml-1 underline underline-offset-4"
+                  to="/admin/login"
+                >
+                  {t('auth.register.goLogin')}
                 </Link>
               </p>
             </div>
 
             <div className="grid gap-2">
               <label className="text-sm font-medium" htmlFor={usernameId}>
-                用户名
+                {t('auth.login.username')}
               </label>
               <Input
                 id={usernameId}
                 autoComplete="username"
-                placeholder="请输入用户名"
+                placeholder={t('auth.login.usernamePlaceholder')}
                 value={username}
                 onChange={(event) => setUsername(event.target.value)}
               />
@@ -153,7 +162,7 @@ export function AdminRegisterPage(): React.ReactNode {
 
             <div className="grid gap-2">
               <label className="text-sm font-medium" htmlFor={emailId}>
-                邮箱（可选）
+                {t('auth.register.emailOptional')}
               </label>
               <Input
                 id={emailId}
@@ -168,12 +177,12 @@ export function AdminRegisterPage(): React.ReactNode {
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="grid gap-2">
                 <label className="text-sm font-medium" htmlFor={passwordId}>
-                  密码
+                  {t('auth.login.password')}
                 </label>
                 <Input
                   id={passwordId}
                   autoComplete="new-password"
-                  placeholder="至少 6 位"
+                  placeholder={t('auth.error.passwordMin', { min: 6 })}
                   type="password"
                   value={password}
                   onChange={(event) => setPassword(event.target.value)}
@@ -182,12 +191,12 @@ export function AdminRegisterPage(): React.ReactNode {
 
               <div className="grid gap-2">
                 <label className="text-sm font-medium" htmlFor={confirmPasswordId}>
-                  确认密码
+                  {t('auth.register.confirmPassword')}
                 </label>
                 <Input
                   id={confirmPasswordId}
                   autoComplete="new-password"
-                  placeholder="再次输入"
+                  placeholder={t('auth.register.confirmPasswordPlaceholder')}
                   type="password"
                   value={confirmPassword}
                   onChange={(event) => setConfirmPassword(event.target.value)}
@@ -208,35 +217,39 @@ export function AdminRegisterPage(): React.ReactNode {
               ) : null}
             </div>
 
-            <Button className="w-full" disabled={loading || !username || !password || !confirmPassword} type="submit">
-              {loading ? '创建中...' : '创建账号'}
+            <Button
+              className="w-full"
+              disabled={loading || !username || !password || !confirmPassword}
+              type="submit"
+            >
+              {loading ? t('auth.register.submitting') : t('auth.register.submit')}
             </Button>
 
             <div className="relative text-center text-sm">
-              <span className="bg-card text-muted-foreground relative z-10 px-2">或</span>
+              <span className="bg-card text-muted-foreground relative z-10 px-2">{t('auth.or')}</span>
               <div className="absolute inset-0 top-1/2 h-px bg-border" />
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
               <Button className="w-full" type="button" variant="outline">
                 <AppleIcon />
-                使用 Apple
+                {t('auth.continueWithApple')}
               </Button>
               <Button className="w-full" type="button" variant="outline">
                 <GoogleIcon />
-                使用 Google
+                {t('auth.continueWithGoogle')}
               </Button>
             </div>
           </form>
 
           <p className="text-muted-foreground px-6 text-center text-xs leading-relaxed">
-            点击继续即表示你同意我们的
+            {t('auth.termsPrefix')}
             <button className="hover:text-primary px-1 underline underline-offset-4" type="button">
-              服务条款
+              {t('auth.terms')}
             </button>
-            与
+            {t('auth.and')}
             <button className="hover:text-primary px-1 underline underline-offset-4" type="button">
-              隐私政策
+              {t('auth.privacy')}
             </button>
           </p>
         </div>
@@ -244,4 +257,3 @@ export function AdminRegisterPage(): React.ReactNode {
     </div>
   );
 }
-

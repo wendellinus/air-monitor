@@ -3,12 +3,12 @@ import { ArrowLeft, GalleryVerticalEnd } from 'lucide-react';
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
-import { api } from '../shared/api';
-import { setTokens } from '../shared/auth';
-import type { ApiResponse, Tokens } from '../shared/types';
-
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { api } from '@/shared/api';
+import { setTokens } from '@/shared/auth';
+import { useI18n } from '@/shared/i18n';
+import type { ApiResponse, Tokens } from '@/shared/types';
 
 function AppleIcon(): React.ReactNode {
   return (
@@ -44,6 +44,7 @@ function GoogleIcon(): React.ReactNode {
 
 export function AdminLoginPage(): React.ReactNode {
   const navigate = useNavigate();
+  const { t } = useI18n();
   const usernameId = React.useId();
   const passwordId = React.useId();
 
@@ -65,7 +66,9 @@ export function AdminLoginPage(): React.ReactNode {
       setTokens(tokens);
       navigate('/admin', { replace: true });
     } catch (errorValue) {
-      setError(errorValue instanceof Error ? errorValue.message : '登录失败，请稍后再试');
+      setError(
+        errorValue instanceof Error ? errorValue.message : t('auth.login.errorFallback'),
+      );
     } finally {
       setLoading(false);
     }
@@ -80,7 +83,7 @@ export function AdminLoginPage(): React.ReactNode {
             to="/screen"
           >
             <ArrowLeft className="size-4" />
-            返回大屏
+            {t('auth.backToScreen')}
           </Link>
         </div>
 
@@ -94,28 +97,28 @@ export function AdminLoginPage(): React.ReactNode {
                 <div className="flex size-8 items-center justify-center rounded-md bg-primary/10 text-primary">
                   <GalleryVerticalEnd className="size-6" />
                 </div>
-                <span className="sr-only">空气监测后台</span>
+                <span className="sr-only">{t('auth.appName')}</span>
               </div>
-              <h1 className="text-xl font-bold">欢迎登录后台</h1>
+              <h1 className="text-xl font-bold">{t('auth.login.title')}</h1>
               <p className="text-muted-foreground text-sm">
-                没有账号？
+                {t('auth.login.subtitlePrefix')}
                 <Link
                   className="text-foreground ml-1 underline underline-offset-4"
                   to="/admin/register"
                 >
-                  立即注册
+                  {t('auth.login.registerNow')}
                 </Link>
               </p>
             </div>
 
             <div className="grid gap-2">
               <label className="text-sm font-medium" htmlFor={usernameId}>
-                用户名
+                {t('auth.login.username')}
               </label>
               <Input
                 id={usernameId}
                 autoComplete="username"
-                placeholder="请输入用户名"
+                placeholder={t('auth.login.usernamePlaceholder')}
                 required
                 value={username}
                 onChange={(event) => setUsername(event.target.value)}
@@ -124,12 +127,12 @@ export function AdminLoginPage(): React.ReactNode {
 
             <div className="grid gap-2">
               <label className="text-sm font-medium" htmlFor={passwordId}>
-                密码
+                {t('auth.login.password')}
               </label>
               <Input
                 id={passwordId}
                 autoComplete="current-password"
-                placeholder="请输入密码"
+                placeholder={t('auth.login.passwordPlaceholder')}
                 required
                 type="password"
                 value={password}
@@ -144,34 +147,34 @@ export function AdminLoginPage(): React.ReactNode {
             ) : null}
 
             <Button className="w-full" disabled={loading || !username || !password} type="submit">
-              {loading ? '登录中...' : '登录'}
+              {loading ? t('auth.login.submitting') : t('auth.login.submit')}
             </Button>
 
             <div className="relative text-center text-sm">
-              <span className="bg-card text-muted-foreground relative z-10 px-2">或</span>
+              <span className="bg-card text-muted-foreground relative z-10 px-2">{t('auth.or')}</span>
               <div className="absolute inset-0 top-1/2 h-px bg-border" />
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
               <Button className="w-full" type="button" variant="outline">
                 <AppleIcon />
-                使用 Apple
+                {t('auth.continueWithApple')}
               </Button>
               <Button className="w-full" type="button" variant="outline">
                 <GoogleIcon />
-                使用 Google
+                {t('auth.continueWithGoogle')}
               </Button>
             </div>
           </form>
 
           <p className="text-muted-foreground px-6 text-center text-xs leading-relaxed">
-            点击继续即表示你同意我们的
+            {t('auth.termsPrefix')}
             <button className="hover:text-primary px-1 underline underline-offset-4" type="button">
-              服务条款
+              {t('auth.terms')}
             </button>
-            与
+            {t('auth.and')}
             <button className="hover:text-primary px-1 underline underline-offset-4" type="button">
-              隐私政策
+              {t('auth.privacy')}
             </button>
           </p>
         </div>

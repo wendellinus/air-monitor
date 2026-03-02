@@ -7,9 +7,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { cn } from '@/lib/utils';
 import { gcj02ToWgs84, type LonLat } from '@/lib/coords';
 
-import { api } from '../shared/api';
-import type { ApiResponse } from '../shared/types';
-import { AMapPanel } from './widgets/amap-panel';
+import { api } from '@/shared/api';
+import type { ApiResponse } from '@/shared/types';
+import { AMapPanel } from '@/ui/screen/widgets/amap-panel';
 
 function formatDateTime(value: string | undefined): string {
   if (!value) return '-';

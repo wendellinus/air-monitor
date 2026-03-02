@@ -2,11 +2,19 @@ import React from 'react';
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 
 import { getAccessToken } from './auth';
-import { AdminLayout } from '../ui/admin-layout';
-import { AdminLoginPage } from '../ui/admin-login-page';
-import { AdminRegisterPage } from '../ui/admin-register-page';
-import { PlanPage } from '../ui/plan-page';
-import { ScreenPage } from '../ui/screen-page';
+import {
+  AdminCitiesPage,
+  AdminDashboard,
+  AdminDocsPage,
+  AdminLayout,
+  AdminLoginPage,
+  AdminNoticesPage,
+  AdminRegisterPage,
+  AdminSystemPage,
+  AdminUsersPage,
+} from '@/ui/admin';
+import { PlanPage } from '@/ui/plan';
+import { ScreenPage } from '@/ui/screen';
 
 function RequireAuth(props: { children: React.ReactNode }): React.ReactNode {
   const token = getAccessToken();
@@ -27,5 +35,13 @@ export const router = createBrowserRouter([
         <AdminLayout />
       </RequireAuth>
     ),
+    children: [
+      { index: true, element: <AdminDashboard /> },
+      { path: 'users', element: <AdminUsersPage /> },
+      { path: 'notices', element: <AdminNoticesPage /> },
+      { path: 'cities', element: <AdminCitiesPage /> },
+      { path: 'system', element: <AdminSystemPage /> },
+      { path: 'docs', element: <AdminDocsPage /> },
+    ],
   },
 ]);

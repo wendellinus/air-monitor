@@ -8,7 +8,7 @@ process.env.PORT = process.env.PORT ?? '0';
 // Local defaults (match docker-compose.yml)
 process.env.DATABASE_URL =
   process.env.DATABASE_URL ??
-  'postgresql://postgres:123456@127.0.0.1:5432/go_practice_db?schema=public&sslmode=disable';
+  'postgresql://postgres:123456@127.0.0.1:5432/air_monitor?schema=public&sslmode=disable';
 process.env.REDIS_URL = process.env.REDIS_URL ?? 'redis://127.0.0.1:6379/0';
 
 // JWT (tests should not rely on your real secrets)
@@ -20,4 +20,3 @@ process.env.JWT_REFRESH_EXPIRES_IN = process.env.JWT_REFRESH_EXPIRES_IN ?? '7d';
 // Disable background jobs in tests to keep deterministic.
 process.env.CACHE_REFRESH_ENABLED = 'false';
 process.env.ALERT_SYNC_ENABLED = 'false';
-

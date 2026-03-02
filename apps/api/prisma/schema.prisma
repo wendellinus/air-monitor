@@ -30,6 +30,7 @@ model User {
   deletedAt DateTime?
 
   refreshTokens RefreshToken[]
+  favoriteCities UserFavoriteCity[]
 
   @@index([deletedAt])
 }
@@ -60,6 +61,21 @@ model City {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  favoritedBy UserFavoriteCity[]
+}
+
+model UserFavoriteCity {
+  userId Int
+  cityId String   @db.VarChar(20)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  city City @relation(fields: [cityId], references: [cityId], onDelete: Cascade)
+
+  @@id([userId, cityId])
+  @@index([cityId])
+  @@index([createdAt])
 }
 
 model AirQualityLog {

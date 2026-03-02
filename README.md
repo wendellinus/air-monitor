@@ -14,47 +14,43 @@ This repository is a pnpm workspace monorepo:
 
 ## Quick Start
 
-1) Start infra
+1. Start infra
 
 ```bash
 docker compose up -d
 ```
 
-2) Configure env
+2. Configure env
 
 ```bash
 cp apps/api/.env.example apps/api/.env
+# 编辑 apps/api/.env，填写初始账号等配置
 ```
 
-3) Install deps and generate Prisma client
+3. Install deps（自动生成 Prisma Client）
 
 ```bash
 pnpm install
-pnpm prisma:generate
 ```
 
-4) Run DB migrations
+4. Run DB migrations + seed
 
 ```bash
-pnpm prisma:migrate:dev
+pnpm run setup
 ```
 
-5) (Optional) Seed admin/operator (for production bootstrap)
+> `setup` = `prisma migrate dev`，会自动建表并执行 seed 初始化账号。
+
+5. Start dev server(s)
 
 ```bash
-pnpm prisma:seed
+pnpm dev
 ```
 
-6) Start dev server(s)
+Frontend（可选）：
 
-```bash
-pnpm dev:api
-```
-
-Frontend:
-
-- Copy web env and set AMap key: `cp apps/web/.env.example apps/web/.env`
-- Start web: `pnpm dev:web`
+- `cp apps/web/.env.example apps/web/.env`（设置 AMap key 等）
+- 单独启动 web：`pnpm dev:web`
 
 ## Swagger
 

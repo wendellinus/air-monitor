@@ -15,6 +15,7 @@ import { NoticeModule } from './modules/notice/notice.module';
 import { ProviderModule } from './modules/provider/provider.module';
 import { UserModule } from './modules/user/user.module';
 import { WsModule } from './modules/ws/ws.module';
+import { SystemModule } from './modules/system/system.module';
 import { EnvModule } from './shared/env/env.module';
 
 @Module({
@@ -36,6 +37,7 @@ import { EnvModule } from './shared/env/env.module';
     NoticeModule,
     ProviderModule,
     WsModule,
+    SystemModule,
   ],
 })
 export class AppModule {}

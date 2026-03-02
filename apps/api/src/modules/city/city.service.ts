@@ -93,4 +93,8 @@ export class CityService {
       throw new AppError(ErrorCodes.ThirdParty, (e as Error).message);
     }
   }
+
+  async upsertCity(city: CityEntity): Promise<void> {
+    await this.repo.upsert(city);
+  }
 }

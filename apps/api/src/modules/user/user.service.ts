@@ -1,32 +1,54 @@
 import { Inject, Injectable } from '@nestjs/common';
 import * as bcrypt from 'bcryptjs';
 
-import type { UserListData, UserListItem } from '@air-monitor/shared';
+import type { CityItem, UserListData, UserListItem } from '@air-monitor/shared';
 
 import { AppError } from '../../shared/app-error';
 import type { UserRole } from '../../shared/authz/user-role';
 import { ErrorCodes } from '../../shared/error-codes';
+import { CityService } from '../city/city.service';
 
 import { UserRepository } from './user.repository';
 
 @Injectable()
 export class UserService {
-  constructor(@Inject(UserRepository) private readonly repo: UserRepository) {}
+  constructor(
+    @Inject(UserRepository) private readonly repo: UserRepository,
+    @Inject(CityService) private readonly cityService: CityService,
+  ) {}
 
   async getUserList(page: number, pageSize: number): Promise<UserListData> {
     const { list, total } = await this.repo.list(page, pageSize);
     return {
-      list: list.map<UserListItem>((u) => ({ id: u.id, username: u.username, email: u.email ?? undefined })),
+      list: list.map<UserListItem>((u) => ({
+        id: u.id,
+        username: u.username,
+        email: u.email ?? undefined,
+        role: u.role,
+        isActive: u.isActive,
+        createdAt: u.createdAt.toISOString(),
+      })),
       total,
       page,
       pageSize,
     };
   }
 
-  async searchUsers(keyword: string | undefined, page: number, pageSize: number): Promise<UserListData> {
+  async searchUsers(
+    keyword: string | undefined,
+    page: number,
+    pageSize: number,
+  ): Promise<UserListData> {
     const { list, total } = await this.repo.search(keyword, page, pageSize);
     return {
-      list: list.map<UserListItem>((u) => ({ id: u.id, username: u.username, email: u.email ?? undefined })),
+      list: list.map<UserListItem>((u) => ({
+        id: u.id,
+        username: u.username,
+        email: u.email ?? undefined,
+        role: u.role,
+        isActive: u.isActive,
+        createdAt: u.createdAt.toISOString(),
+      })),
       total,
       page,
       pageSize,
@@ -59,5 +81,35 @@ export class UserService {
     const now = new Date();
     await this.repo.updateRole(id, role, now);
     await this.repo.revokeAllRefreshTokens(id, now);
+  }
+
+  async getFavoriteCities(userId: number): Promise<CityItem[]> {
+    const list = await this.repo.listFavoriteCities(userId);
+    return list.map((item) => ({
+      cityId: item.cityId,
+      name: item.name,
+      lat: item.lat,
+      lon: item.lon,
+      adm2: item.adm2,
+      adm1: item.adm1,
+      country: item.country,
+    }));
+  }
+
+  async addFavoriteCity(userId: number, city: CityItem): Promise<void> {
+    await this.cityService.upsertCity({
+      cityId: city.cityId,
+      name: city.name,
+      lat: city.lat,
+      lon: city.lon,
+      adm2: city.adm2,
+      adm1: city.adm1,
+      country: city.country,
+    });
+    await this.repo.addFavoriteCity(userId, city.cityId);
+  }
+
+  async removeFavoriteCity(userId: number, cityId: string): Promise<void> {
+    await this.repo.removeFavoriteCity(userId, cityId);
   }
 }

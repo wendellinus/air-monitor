@@ -7,10 +7,10 @@
 
 ## 0. 你先知道三件事（很重要）
 
-1) **所有接口路径都有前缀**：`/api/v1`  
+1. **所有接口路径都有前缀**：`/api/v1`  
    例如登录接口实际是：`POST /api/v1/login`
 
-2) **所有响应都统一成一种形状**（成功/失败都一样的外壳）：
+2. **所有响应都统一成一种形状**（成功/失败都一样的外壳）：
 
 ```json
 {
@@ -24,7 +24,7 @@
 - `code != 0` 表示业务错误（参数错、未登录、第三方失败等）
 - 发生业务错误时：项目约定一般仍返回 **HTTP 200**，错误通过 `code/msg` 表达
 
-3) **Swagger 文档地址**（跑起来后打开这个就能看到接口）：
+3. **Swagger 文档地址**（跑起来后打开这个就能看到接口）：
 
 - Swagger UI：`http://localhost:8080/api/docs`
 
@@ -126,13 +126,13 @@ PORT=8080
 #### 3.2.2 DATABASE_URL（Postgres 连接）
 
 ```env
-DATABASE_URL=postgresql://postgres:123456@127.0.0.1:5432/go_practice_db?schema=public&sslmode=disable
+DATABASE_URL=postgresql://postgres:123456@127.0.0.1:5432/air_monitor?schema=public&sslmode=disable
 ```
 
 说明：
 
 - `postgres:123456` 来自 `docker-compose.yml` 默认配置
-- `go_practice_db` 是数据库名（docker 启动时会创建）
+- `air_monitor` 是数据库名（docker 启动时会创建）
 
 #### 3.2.3 Redis
 
@@ -195,7 +195,7 @@ QWEATHER_PRIVATE_KEY_PEM="-----BEGIN PRIVATE KEY-----\n...你的私钥内容...\
 - `.env` 里私钥建议用一行字符串，并用 `\n` 表示换行（dotenv 友好）
 - 如果你看到类似错误：
   - `error:... DECODER routines::unsupported`
-  通常就是私钥换行/转义格式不对导致的
+    通常就是私钥换行/转义格式不对导致的
 
 ### 3.4 定时任务（可选）
 

@@ -5,14 +5,17 @@ import { RouterProvider } from 'react-router-dom';
 
 import { queryClient } from './shared/query-client';
 import { router } from './shared/router';
+import { I18nProvider } from './shared/i18n';
 import { Toaster } from './components/ui/sonner';
 import './styles.css';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <QueryClientProvider client={queryClient}>
-      <RouterProvider router={router} />
-    </QueryClientProvider>
+    <I18nProvider>
+      <QueryClientProvider client={queryClient}>
+        <RouterProvider router={router} />
+      </QueryClientProvider>
+    </I18nProvider>
     <Toaster position="top-center" />
   </React.StrictMode>,
 );

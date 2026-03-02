@@ -1,7 +1,7 @@
-import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 
-import type { MeResponseData, UserListData } from '@air-monitor/shared';
+import type { CityItem, MeResponseData, UserListData } from '@air-monitor/shared';
 
 import { Roles } from '../../shared/authz/roles.decorator';
 import { RolesGuard } from '../../shared/authz/roles.guard';
@@ -11,6 +11,8 @@ import type { JwtUser } from '../auth/types';
 
 import { PageQueryDto } from './dto/page-query.dto';
 import { SearchUserQueryDto } from './dto/search-user-query.dto';
+import { FavoriteCityDto } from './dto/favorite-city.dto';
+import { FavoriteCityParamDto } from './dto/favorite-city-param.dto';
 import { UserService } from './user.service';
 
 @ApiTags('user')
@@ -23,6 +25,35 @@ export class UserController {
   @Get('user/me')
   async me(@CurrentUser() user: JwtUser): Promise<MeResponseData> {
     return { id: user.userId, username: user.username, role: user.role };
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @Get('user/favorites/cities')
+  async listFavoriteCities(@CurrentUser() user: JwtUser): Promise<CityItem[]> {
+    return this.users.getFavoriteCities(user.userId);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @Post('user/favorites/cities')
+  async addFavoriteCity(
+    @CurrentUser() user: JwtUser,
+    @Body() dto: FavoriteCityDto,
+  ): Promise<unknown> {
+    await this.users.addFavoriteCity(user.userId, dto);
+    return { ok: true };
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @Delete('user/favorites/cities/:cityId')
+  async removeFavoriteCity(
+    @CurrentUser() user: JwtUser,
+    @Param() dto: FavoriteCityParamDto,
+  ): Promise<unknown> {
+    await this.users.removeFavoriteCity(user.userId, dto.cityId);
+    return { ok: true };
   }
 
   @ApiBearerAuth()
