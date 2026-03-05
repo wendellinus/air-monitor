@@ -1,4 +1,5 @@
 @import 'tailwindcss';
+@import "tw-animate-css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -354,6 +355,18 @@ html.admin-page {
 }
 
 html.admin-page,
+html.admin-page body,
+html.admin-page #root {
+  height: 100%;
+  max-height: 100svh;
+  overflow: hidden;
+}
+
+html.admin-page [data-admin-outlet-viewport] {
+  overscroll-behavior: contain;
+}
+
+html.admin-page,
 html.admin-page body {
   /* Softer background for dashboard */
   background: oklch(0.985 0.005 245);
@@ -442,4 +455,61 @@ a {
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.439 0 0);
+}
+
+.admin-driver-popover.driver-popover {
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  box-shadow: 0 16px 44px -20px rgba(15, 23, 42, 0.35);
+  color: #0f172a;
+}
+
+.admin-driver-popover .driver-popover-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.admin-driver-popover .driver-popover-description {
+  color: #475569;
+  line-height: 1.65;
+}
+
+.admin-driver-popover .driver-popover-progress-text {
+  color: #64748b;
+  font-size: 12px;
+}
+
+.admin-driver-popover .driver-popover-footer button {
+  border-radius: 8px;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #334155;
+  font-weight: 600;
+}
+
+.admin-driver-popover .driver-popover-skip-btn {
+  margin-right: auto;
+  border-color: #cbd5e1 !important;
+  background: #ffffff !important;
+  color: #475569 !important;
+}
+
+.admin-driver-popover .driver-popover-skip-btn:hover {
+  background: #f8fafc !important;
+}
+
+.admin-driver-popover .driver-popover-next-btn {
+  border-color: #2563eb !important;
+  background: #2563eb !important;
+  color: #ffffff !important;
+}
+
+.admin-driver-popover .driver-popover-close-btn {
+  color: #64748b;
+}
+
+input[type="search"]::-webkit-search-decoration,input[type="search"]::-webkit-search-cancel-button,input[type="search"]::-webkit-search-results-button,input[type="search"]::-webkit-search-results-decoration {
+    -webkit-appearance: none;
 }

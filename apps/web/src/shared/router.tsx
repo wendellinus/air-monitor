@@ -3,16 +3,20 @@ import { createBrowserRouter, Navigate } from 'react-router-dom';
 
 import { getAccessToken } from './auth';
 import {
+  AdminApiQuotaPage,
   AdminCitiesPage,
   AdminDashboard,
-  AdminDocsPage,
+  AdminFavoritesPage,
   AdminLayout,
   AdminLoginPage,
   AdminNoticesPage,
+  AdminPermissionsPage,
+  AdminProfileSettingsPage,
   AdminRegisterPage,
   AdminSystemPage,
   AdminUsersPage,
 } from '@/ui/admin';
+import { NotFoundPage } from '@/ui/not-found-page';
 import { PlanPage } from '@/ui/plan';
 import { ScreenPage } from '@/ui/screen';
 
@@ -40,8 +44,12 @@ export const router = createBrowserRouter([
       { path: 'users', element: <AdminUsersPage /> },
       { path: 'notices', element: <AdminNoticesPage /> },
       { path: 'cities', element: <AdminCitiesPage /> },
+      { path: 'favorites', element: <AdminFavoritesPage /> },
       { path: 'system', element: <AdminSystemPage /> },
-      { path: 'docs', element: <AdminDocsPage /> },
+      { path: 'permissions', element: <AdminPermissionsPage /> },
+      { path: 'api-quota', element: <AdminApiQuotaPage /> },
+      { path: 'profile-settings', element: <AdminProfileSettingsPage /> },
     ],
   },
+  { path: '*', element: <NotFoundPage /> },
 ]);

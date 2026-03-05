@@ -3,6 +3,8 @@ import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 
 import type { NoticeAdminListData, NoticeItem, OkResponseData } from '@air-monitor/shared';
 
+import { Permissions } from '../../shared/authz/permissions.decorator';
+import { PermissionsGuard } from '../../shared/authz/permissions.guard';
 import { Roles } from '../../shared/authz/roles.decorator';
 import { RolesGuard } from '../../shared/authz/roles.guard';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -15,7 +17,7 @@ import type { NoticeEntity } from './notice.repository';
 
 @ApiTags('admin-notice')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
 @Roles('admin', 'operator')
 @Controller('admin/notices')
 export class AdminNoticeController {
@@ -38,29 +40,34 @@ export class AdminNoticeController {
     };
   }
 
+  @Permissions('notices.view')
   @Get()
   async list(@Query() q: AdminNoticeListQueryDto): Promise<NoticeAdminListData> {
     const { list, total, page, pageSize } = await this.notices.listAdmin(q.page, q.pageSize, q.status);
     return { list: list.map((n) => this.toItem(n)), total, page, pageSize };
   }
 
+  @Permissions('notices.create')
   @Post()
   async create(@Body() dto: AdminCreateNoticeDto): Promise<{ id: number }> {
     return this.notices.createManualNotice(dto);
   }
 
+  @Permissions('notices.create')
   @Put(':id')
   async update(@Param('id', ParseIntPipe) id: number, @Body() dto: AdminUpdateNoticeDto): Promise<OkResponseData> {
     await this.notices.updateManualNotice(id, dto);
     return { ok: true };
   }
 
+  @Permissions('notices.publish')
   @Post(':id/publish')
   async publish(@Param('id', ParseIntPipe) id: number): Promise<OkResponseData> {
     await this.notices.publishManualNotice(id);
     return { ok: true };
   }
 
+  @Permissions('notices.publish')
   @Post(':id/unpublish')
   async unpublish(@Param('id', ParseIntPipe) id: number): Promise<OkResponseData> {
     await this.notices.unpublishManualNotice(id);

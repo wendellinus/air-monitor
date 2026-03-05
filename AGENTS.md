@@ -49,3 +49,9 @@
 - Use constructor injection only; do not instantiate services with `new` inside classes.
 - Use global `HttpException` handling; never return ad-hoc `{ status: 500 }` objects.
 - Disallow `any`; every async function must return `Promise<T>` with a concrete type.
+- Enforce Single Responsibility Principle (SRP) for both API and Web code:
+  - One module/component should have one primary reason to change.
+  - For API: controllers only handle HTTP concerns; business logic must stay in services; data access must stay in repositories/infra.
+  - For Web (`apps/web`): page files should act as composition containers; extract data fetching/polling, persistence, and complex interaction logic into hooks/services/utils.
+  - Avoid “mega files” that mix layout, business logic, async orchestration, and visualization logic in one place; split by feature responsibility.
+  - Prefer feature-level folders (`ui/<domain>`, `hooks/<domain>`, `shared/<domain>`) and keep cross-domain imports through explicit public interfaces.

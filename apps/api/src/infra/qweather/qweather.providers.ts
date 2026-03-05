@@ -1,4 +1,4 @@
-import { Inject } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import axios from 'axios';
 import type Redis from 'ioredis';
 
@@ -21,6 +21,30 @@ import type {
   QweatherWeatherAlert,
 } from './qweather.types';
 
+function describeAxiosError(error: unknown): string {
+  if (!axios.isAxiosError(error)) {
+    return error instanceof Error ? error.message : String(error);
+  }
+
+  const status = error.response?.status;
+  const payload = error.response?.data;
+  const code =
+    payload && typeof payload === 'object' && 'code' in payload
+      ? String((payload as Record<string, unknown>)['code'] ?? '')
+      : '';
+  const message =
+    payload && typeof payload === 'object' && 'message' in payload
+      ? String((payload as Record<string, unknown>)['message'] ?? '')
+      : '';
+
+  const parts = [
+    status ? `HTTP ${status}` : 'HTTP unknown',
+    code ? `QWeather code=${code}` : '',
+    message || error.message || '',
+  ].filter(Boolean);
+  return parts.join(' | ');
+}
+
 export interface GeoProvider {
   fetchGeo(keyword: string): Promise<QweatherGeoCity[]>;
   getTopCities(rangeType: QweatherTopCityRange, number: number): Promise<QweatherGeoCity[]>;
@@ -41,6 +65,7 @@ export interface FinanceProvider {
   fetchStats(): Promise<QweatherStats>;
 }
 
+@Injectable()
 class QweatherGeoProvider implements GeoProvider {
   constructor(
     private readonly client: QweatherClient,
@@ -69,13 +94,13 @@ class QweatherGeoProvider implements GeoProvider {
           return [];
         }
         if (status === 401 || status === 403) {
-          throw new Error('定位服务鉴权失败，请检查 QWeather 配置。');
+          throw new Error('Geo lookup auth failed. Please verify QWeather credentials and host configuration.');
         }
         if (status === 429) {
-          throw new Error('定位服务请求过于频繁，请稍后重试。');
+          throw new Error('Geo lookup request is rate-limited. Please retry later.');
         }
         if (typeof status === 'number' && status >= 500) {
-          throw new Error('定位服务暂不可用，请稍后重试。');
+          throw new Error('Geo lookup service is temporarily unavailable. Please retry later.');
         }
       }
       throw e;
@@ -137,6 +162,7 @@ class QweatherGeoProvider implements GeoProvider {
   }
 }
 
+@Injectable()
 class QweatherAirProvider implements AirProvider {
   constructor(
     private readonly client: QweatherClient,
@@ -256,6 +282,7 @@ class QweatherAirProvider implements AirProvider {
   }
 }
 
+@Injectable()
 class QweatherAlertProvider implements AlertProvider {
   constructor(
     private readonly client: QweatherClient,
@@ -290,15 +317,50 @@ class QweatherAlertProvider implements AlertProvider {
   }
 }
 
+@Injectable()
 class QweatherFinanceProvider implements FinanceProvider {
   constructor(private readonly client: QweatherClient) {}
 
+  private assertBusinessSuccess(path: string, payload: unknown): void {
+    if (!payload || typeof payload !== 'object') return;
+    const record = payload as Record<string, unknown>;
+    if (!('code' in record)) return;
+
+    const code = String(record['code'] ?? '');
+    if (code === '200') return;
+
+    const message = typeof record['message'] === 'string' ? record['message'].trim() : '';
+    const detail = message ? ` message=${message}` : '';
+    throw new Error(`QWeather ${path} business error: code=${code}${detail}`);
+  }
+
+  private async requestWithAuthFallback<T>(path: string): Promise<T> {
+    const available = this.client.getAvailableAuthModes();
+    const modeOrder = (['jwt', 'apiKey'] as const).filter((mode) => available.includes(mode));
+    if (modeOrder.length === 0) {
+      throw new Error('QWeather credentials are not configured (JWT or API key).');
+    }
+
+    const errors: string[] = [];
+    for (const mode of modeOrder) {
+      try {
+        const payload = await this.client.get<T>(path, undefined, { authMode: mode });
+        this.assertBusinessSuccess(path, payload);
+        return payload;
+      } catch (error) {
+        errors.push(`${mode}: ${describeAxiosError(error)}`);
+      }
+    }
+
+    throw new Error(`QWeather ${path} request failed: ${errors.join(' || ')}`);
+  }
+
   async fetchSummary(): Promise<QweatherSummary> {
-    return this.client.get<QweatherSummary>('/finance/v1/summary');
+    return this.requestWithAuthFallback<QweatherSummary>('/finance/v1/summary');
   }
 
   async fetchStats(): Promise<QweatherStats> {
-    return this.client.get<QweatherStats>('/metrics/v1/stats');
+    return this.requestWithAuthFallback<QweatherStats>('/metrics/v1/stats');
   }
 }
 

@@ -1,12 +1,14 @@
 export { AdminLayout } from './layout';
 export {
+  AdminApiQuotaPage,
   AdminCitiesPage,
   AdminDashboard,
-  AdminDocsPage,
+  AdminFavoritesPage,
   AdminLoginPage,
   AdminNoticesPage,
+  AdminPermissionsPage,
+  AdminProfileSettingsPage,
   AdminRegisterPage,
   AdminSystemPage,
   AdminUsersPage,
 } from './pages';
-

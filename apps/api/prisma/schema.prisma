@@ -21,6 +21,7 @@ model User {
   phone        String?  @db.VarChar(16)
   isActive     Boolean  @default(true)
   role         UserRole @default(user)
+  locale       String   @default("zh-CN") @db.VarChar(10)
   tokenVersion Int      @default(0)
   // If set, any token with iat older than this should be treated as invalid.
   tokenInvalidBefore DateTime?
@@ -31,6 +32,7 @@ model User {
 
   refreshTokens RefreshToken[]
   favoriteCities UserFavoriteCity[]
+  dashboardLayout UserDashboardLayout?
 
   @@index([deletedAt])
 }
@@ -78,6 +80,44 @@ model UserFavoriteCity {
   @@index([createdAt])
 }
 
+model UserDashboardLayout {
+  userId    Int      @id
+  layout    Json
+  version   Int      @default(1)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Permission {
+  key       String  @id @db.VarChar(100)
+  label     String  @db.VarChar(100)
+  type      String  @db.VarChar(20)
+  parentKey String? @db.VarChar(100)
+  sort      Int     @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  parent   Permission?  @relation("PermissionParent", fields: [parentKey], references: [key], onDelete: SetNull)
+  children Permission[] @relation("PermissionParent")
+  roles    RolePermission[]
+
+  @@index([parentKey])
+  @@index([sort])
+}
+
+model RolePermission {
+  role          UserRole
+  permissionKey String   @db.VarChar(100)
+  createdAt     DateTime @default(now())
+
+  permission Permission @relation(fields: [permissionKey], references: [key], onDelete: Cascade)
+
+  @@id([role, permissionKey])
+  @@index([permissionKey])
+}
+
 model AirQualityLog {
   id       Int      @id @default(autoincrement())
   cityId   String   @db.VarChar(20)
@@ -116,4 +156,34 @@ model Notice {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model ProviderAccountSnapshot {
+  id           Int      @id @default(autoincrement())
+  provider     String   @db.VarChar(20)
+  source       String   @default("live") @db.VarChar(20)
+  snapshotAt   DateTime @default(now())
+  balance      Decimal? @db.Decimal(20, 4)
+  requestCount Int?
+  quotaLimit   Int?
+  quotaUsed    Int?
+  usageRate    Decimal? @db.Decimal(8, 6)
+  raw          Json
+  createdAt    DateTime @default(now())
+
+  @@index([provider, snapshotAt(sort: Desc)])
+}
+
+model ProviderAccountMetricPoint {
+  id        Int      @id @default(autoincrement())
+  provider  String   @db.VarChar(20)
+  metricKey String   @db.VarChar(32)
+  bucket    String   @db.VarChar(10)
+  time      DateTime
+  value     Decimal  @db.Decimal(20, 6)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([provider, metricKey, bucket, time])
+  @@index([provider, metricKey, time(sort: Desc)])
 }

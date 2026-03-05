@@ -7,9 +7,15 @@ import { SignJWT } from 'jose';
 
 import { EnvService } from '../../shared/env/env.service';
 
+export type QweatherAuthMode = 'apiKey' | 'jwt';
+
 type QweatherAuthHeader =
   | { kind: 'bearer'; value: string }
   | { kind: 'apiKey'; value: string };
+
+type QweatherRequestOptions = {
+  authMode?: QweatherAuthMode | 'auto';
+};
 
 @Injectable()
 export class QweatherClient {
@@ -32,7 +38,14 @@ export class QweatherClient {
     return Boolean(this.env.qweatherApiKey);
   }
 
-  getAuthMode(): 'apiKey' | 'jwt' {
+  getAvailableAuthModes(): QweatherAuthMode[] {
+    const modes: QweatherAuthMode[] = [];
+    if (this.hasApiKeyAuth()) modes.push('apiKey');
+    if (this.hasJwtAuth()) modes.push('jwt');
+    return modes;
+  }
+
+  getAuthMode(): QweatherAuthMode {
     if (this.hasApiKeyAuth()) return 'apiKey';
     if (this.hasJwtAuth()) return 'jwt';
     throw new Error('QWeather credentials are not configured (JWT or API key).');
@@ -60,50 +73,68 @@ export class QweatherClient {
     }
   }
 
-  private async getAuthHeader(): Promise<QweatherAuthHeader> {
-    // Prefer API Key when present (simpler local/dev setup). JWT is still supported as a fallback.
-    if (this.hasApiKeyAuth()) {
-      return { kind: 'apiKey', value: this.env.qweatherApiKey! };
-    }
+  private async getAuthHeader(preferredMode: QweatherAuthMode | 'auto' = 'auto'): Promise<QweatherAuthHeader> {
+    const firstChoice: QweatherAuthMode | null =
+      preferredMode === 'auto'
+        ? (this.hasApiKeyAuth() ? 'apiKey' : this.hasJwtAuth() ? 'jwt' : null)
+        : preferredMode;
+    const secondChoice: QweatherAuthMode | null =
+      preferredMode === 'auto'
+        ? null
+        : preferredMode === 'apiKey'
+          ? (this.hasJwtAuth() ? 'jwt' : null)
+          : (this.hasApiKeyAuth() ? 'apiKey' : null);
 
-    if (this.hasJwtAuth()) {
-      const nowMs = Date.now();
-      const refreshWindowMs = 60_000; // refresh 1 min before exp
-      if (this.cachedToken && nowMs + refreshWindowMs < this.cachedToken.expMs) {
-        return { kind: 'bearer', value: this.cachedToken.value };
+    const tryModes = [firstChoice, secondChoice].filter((x): x is QweatherAuthMode => Boolean(x));
+
+    for (const mode of tryModes) {
+      if (mode === 'apiKey' && this.hasApiKeyAuth()) {
+        return { kind: 'apiKey', value: this.env.qweatherApiKey! };
       }
 
-      const publicId = this.env.qweatherPublicId!;
-      const projectId = this.env.qweatherProjectId ?? '';
-      const privateKeyPem = this.env.qweatherPrivateKeyPem!;
+      if (mode === 'jwt' && this.hasJwtAuth()) {
+        const nowMs = Date.now();
+        const refreshWindowMs = 60_000; // refresh 1 min before exp
+        if (this.cachedToken && nowMs + refreshWindowMs < this.cachedToken.expMs) {
+          return { kind: 'bearer', value: this.cachedToken.value };
+        }
 
-      const iat = Math.floor(nowMs / 1000);
-      const exp = iat + 5 * 60;
+        const publicId = this.env.qweatherPublicId!;
+        const projectId = this.env.qweatherProjectId ?? '';
+        const privateKeyPem = this.env.qweatherPrivateKeyPem!;
 
-      // QWeather JWT uses an Ed25519 private key in PKCS#8 PEM.
-      // Make the expected format explicit for better error messages.
-      const key = this.loadPkcs8Ed25519Key(privateKeyPem);
-      const jwt = await new SignJWT({ sub: projectId })
-        .setProtectedHeader({ alg: 'EdDSA', kid: publicId })
-        .setIssuedAt(iat)
-        .setIssuer(publicId)
-        .setExpirationTime(exp)
-        .sign(key);
+        const iat = Math.floor(nowMs / 1000);
+        const exp = iat + 5 * 60;
 
-      const token = `Bearer ${jwt}`;
-      this.cachedToken = { value: token, expMs: exp * 1000 };
-      return { kind: 'bearer', value: token };
+        // QWeather JWT uses an Ed25519 private key in PKCS#8 PEM.
+        // Make the expected format explicit for better error messages.
+        const key = this.loadPkcs8Ed25519Key(privateKeyPem);
+        const jwt = await new SignJWT({ sub: projectId })
+          .setProtectedHeader({ alg: 'EdDSA', kid: publicId })
+          .setIssuedAt(iat)
+          .setIssuer(publicId)
+          .setExpirationTime(exp)
+          .sign(key);
+
+        const token = `Bearer ${jwt}`;
+        this.cachedToken = { value: token, expMs: exp * 1000 };
+        return { kind: 'bearer', value: token };
+      }
     }
 
     throw new Error('QWeather credentials are not configured (JWT or API key).');
   }
 
-  async get<T>(path: string, params?: Record<string, string | number>): Promise<T> {
+  async get<T>(
+    path: string,
+    params?: Record<string, string | number>,
+    options?: QweatherRequestOptions,
+  ): Promise<T> {
     if (!this.env.qweatherHost) {
       throw new Error('QWEATHER_HOST is not configured.');
     }
 
-    const auth = await this.getAuthHeader();
+    const auth = await this.getAuthHeader(options?.authMode ?? 'auto');
     // Help users avoid a common misconfiguration: mixing JWT host with API key or vice-versa.
     const host = this.env.qweatherHost;
     if (auth.kind === 'apiKey' && host.includes('.re.qweatherapi.com')) {

@@ -1,9 +1,11 @@
+export { AdminApiQuotaPage } from './api-quota-page';
 export { AdminCitiesPage } from './cities-page';
 export { AdminDashboard } from './dashboard-page';
-export { AdminDocsPage } from './docs-page';
+export { AdminFavoritesPage } from './favorites-page';
 export { AdminLoginPage } from './login-page';
 export { AdminNoticesPage } from './notices-page';
+export { AdminPermissionsPage } from './permissions-page';
+export { AdminProfileSettingsPage } from './profile-settings-page';
 export { AdminRegisterPage } from './register-page';
 export { AdminSystemPage } from './system-page';
 export { AdminUsersPage } from './users-page';
-

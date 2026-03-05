@@ -1,20 +1,23 @@
-import { Controller, Get, Post, Body, UseGuards } from '@nestjs/common';
-import { ApiBearerAuth, ApiTags, ApiOperation } from '@nestjs/swagger';
+﻿import { Body, Controller, Get, Post, UseGuards } from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 
+import { Permissions } from '../../shared/authz/permissions.decorator';
+import { PermissionsGuard } from '../../shared/authz/permissions.guard';
 import { Roles } from '../../shared/authz/roles.decorator';
 import { RolesGuard } from '../../shared/authz/roles.guard';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
-// 简单存放在内存的系统配置（重启失效，适合简单场景）
-let pollingInterval = 60000; // 默认 60 秒
+// In-memory config for simple scenarios. Reset after process restart.
+let pollingInterval = 60000;
 
 @ApiTags('admin-system')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
 @Controller('admin/system')
 export class SystemController {
   @Roles('admin', 'operator', 'user')
-  @ApiOperation({ summary: '获取系统公共配置' })
+  @Permissions('system.view')
+  @ApiOperation({ summary: 'Get public system config' })
   @Get('config')
   getConfig() {
     return {
@@ -23,7 +26,8 @@ export class SystemController {
   }
 
   @Roles('admin')
-  @ApiOperation({ summary: '修改系统运维配置' })
+  @Permissions('system.update')
+  @ApiOperation({ summary: 'Update system runtime config' })
   @Post('config')
   setConfig(@Body() dto: { pollingInterval: number }) {
     if (typeof dto.pollingInterval === 'number' && dto.pollingInterval >= 5000) {

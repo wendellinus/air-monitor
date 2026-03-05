@@ -1,17 +1,31 @@
-import React from 'react';
+﻿import React from 'react';
 import type { MeResponseData } from '@air-monitor/shared';
-import { ChevronsUpDown, LogOut } from 'lucide-react';
+import { ChevronsUpDown, Languages, LogOut, Sparkles, UserRoundCog } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuSeparator,
+  DropdownMenuShortcut,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar';
 import { useI18n } from '@/shared/i18n';
+import { ADMIN_TOUR_START_EVENT } from '@/ui/admin/components/admin-driver-tour-button';
+
+import { isLocale, LOCALES, useLocaleSwitcher } from './language-switcher';
+
+function textByLocale(locale: string, zh: string, en: string): string {
+  return locale.startsWith('zh') ? zh : en;
+}
 
 interface NavUserProps {
   user: MeResponseData | null;
@@ -19,9 +33,18 @@ interface NavUserProps {
 }
 
 export function NavUser({ user, onLogout }: NavUserProps): React.ReactNode {
-  const { t } = useI18n();
+  const navigate = useNavigate();
+  const { t, locale } = useI18n();
+  const { locale: currentLocale, saving, changeLocale, getLocaleLabel } = useLocaleSwitcher();
   const avatarChar = (user?.username?.[0] ?? '?').toUpperCase();
   const username = user?.username ?? '-';
+
+  const handleStartTour = React.useCallback((): void => {
+    navigate('/admin');
+    window.setTimeout(() => {
+      window.dispatchEvent(new Event(ADMIN_TOUR_START_EVENT));
+    }, 360);
+  }, [navigate]);
 
   return (
     <SidebarMenu>
@@ -65,6 +88,50 @@ export function NavUser({ user, onLogout }: NavUserProps): React.ReactNode {
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger className="cursor-pointer">
+                <Languages className="size-4 text-muted-foreground" />
+                {t('admin.user.language')}
+                <DropdownMenuShortcut className="tracking-normal opacity-70">
+                  {getLocaleLabel(currentLocale)}
+                </DropdownMenuShortcut>
+              </DropdownMenuSubTrigger>
+              <DropdownMenuSubContent className="min-w-40">
+                <DropdownMenuRadioGroup
+                  value={currentLocale}
+                  onValueChange={(value) => {
+                    if (!isLocale(value)) return;
+                    void changeLocale(value);
+                  }}
+                >
+                  {LOCALES.map((value) => (
+                    <DropdownMenuRadioItem
+                      key={value}
+                      value={value}
+                      disabled={saving}
+                      className="cursor-pointer"
+                    >
+                      {getLocaleLabel(value)}
+                    </DropdownMenuRadioItem>
+                  ))}
+                </DropdownMenuRadioGroup>
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              className="cursor-pointer"
+              onClick={handleStartTour}
+            >
+              <Sparkles className="size-4 text-blue-600" />
+              {textByLocale(locale, '新手引导', 'Tour')}
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              className="cursor-pointer"
+              onClick={() => navigate('/admin/profile-settings')}
+            >
+              <UserRoundCog className="size-4" />
+              {textByLocale(locale, '账户设置', 'Account settings')}
+            </DropdownMenuItem>
             <DropdownMenuItem
               className="cursor-pointer text-muted-foreground hover:text-destructive focus:text-destructive"
               onClick={onLogout}

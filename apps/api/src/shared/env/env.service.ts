@@ -26,6 +26,12 @@ const envSchema = z.object({
   ALERT_SYNC_ENABLED: z.string().optional(),
   ALERT_SYNC_SCHEDULE: z.string().optional(),
   ALERT_SYNC_LOCATIONS_JSON: z.string().optional(),
+
+  PROVIDER_ACCOUNT_SYNC_ENABLED: z.string().optional(),
+  PROVIDER_ACCOUNT_SYNC_SCHEDULE: z.string().optional(),
+  AMAP_ACCOUNT_MODE: z.enum(['mock', 'live']).optional(),
+  AMAP_ACCOUNT_API_BASE: z.string().url().optional(),
+  AMAP_ACCOUNT_API_KEY: z.string().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;
@@ -113,5 +119,27 @@ export class EnvService {
 
   get alertSyncLocationsJson(): string | undefined {
     return this.env.ALERT_SYNC_LOCATIONS_JSON;
+  }
+
+  get providerAccountSyncEnabled(): boolean {
+    const raw = this.env.PROVIDER_ACCOUNT_SYNC_ENABLED;
+    if (raw === undefined) return true;
+    return raw.toLowerCase() === 'true';
+  }
+
+  get providerAccountSyncSchedule(): string {
+    return this.env.PROVIDER_ACCOUNT_SYNC_SCHEDULE ?? '0 */10 * * * *';
+  }
+
+  get amapAccountMode(): 'mock' | 'live' {
+    return this.env.AMAP_ACCOUNT_MODE ?? 'mock';
+  }
+
+  get amapAccountApiBase(): string | undefined {
+    return this.env.AMAP_ACCOUNT_API_BASE;
+  }
+
+  get amapAccountApiKey(): string | undefined {
+    return this.env.AMAP_ACCOUNT_API_KEY;
   }
 }

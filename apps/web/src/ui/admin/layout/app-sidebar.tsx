@@ -13,6 +13,7 @@ import {
   SidebarMenuItem,
 } from '@/components/ui/sidebar';
 import { useI18n } from '@/shared/i18n';
+import { useUiShellStore } from '@/ui/admin/stores/ui-shell-store';
 
 import { NavMain } from './nav-main';
 import { NavUser } from './nav-user';
@@ -24,9 +25,22 @@ interface AppSidebarProps {
 
 export function AppSidebar({ user, onLogout }: AppSidebarProps): React.ReactNode {
   const { t } = useI18n();
+  const sidebarWidth = useUiShellStore((state) => state.sidebarWidth);
+  const sidebarMin = Math.max(232, sidebarWidth - 16);
+  const sidebarMax = Math.min(288, sidebarWidth + 16);
 
   return (
-    <Sidebar collapsible="icon">
+    <Sidebar
+      collapsible="icon"
+      style={
+        {
+          '--sidebar-width': `${sidebarWidth}px`,
+          '--sidebar-width-min': `${sidebarMin}px`,
+          '--sidebar-width-max': `${sidebarMax}px`,
+        } as React.CSSProperties
+      }
+      className="data-[state=expanded]:min-w-[var(--sidebar-width-min)] data-[state=expanded]:max-w-[var(--sidebar-width-max)]"
+    >
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>

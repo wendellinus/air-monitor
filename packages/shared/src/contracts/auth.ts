@@ -1,5 +1,7 @@
 import type { UserRole } from '../user-role';
 
+export type UserLocale = 'zh-CN' | 'en-US';
+
 export type RegisterRequest = {
   username: string;
   password: string;
@@ -43,9 +45,26 @@ export type MeResponseData = {
   id: number;
   username: string;
   role: UserRole;
+  locale: UserLocale;
+};
+
+export type MeProfileData = {
+  id: number;
+  username: string;
+  email?: string;
+  role: UserRole;
+  locale: UserLocale;
+};
+
+export type UpdateMeProfileRequest = {
+  username: string;
+  email?: string;
+};
+
+export type UpdateLocaleRequest = {
+  locale: UserLocale;
 };
 
 export type OkResponseData = {
   ok: true;
 };
-

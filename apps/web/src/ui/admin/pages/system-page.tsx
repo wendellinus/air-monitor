@@ -16,6 +16,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { api } from '@/shared/api';
+import { useI18n } from '@/shared/i18n';
 import type { ApiResponse } from '@/shared/types';
 
 type SystemConfig = {
@@ -23,6 +24,7 @@ type SystemConfig = {
 };
 
 export function AdminSystemPage(): React.ReactNode {
+  const { t } = useI18n();
   const queryClient = useQueryClient();
   const [intervalSec, setIntervalSec] = React.useState<string>('60');
 
@@ -44,18 +46,18 @@ export function AdminSystemPage(): React.ReactNode {
       await api.post('/admin/system/config', { pollingInterval: sec * 1000 });
     },
     onSuccess: () => {
-      toast.success('System config saved');
+      toast.success(t('admin.system.saveSuccess'));
       void queryClient.invalidateQueries({ queryKey: ['admin-system-config'] });
     },
     onError: (error: unknown) => {
-      toast.error(error instanceof Error ? error.message : 'Failed to save config');
+      toast.error(error instanceof Error ? error.message : t('admin.system.saveFail'));
     },
   });
 
   function handleSave(): void {
     const value = Number.parseInt(intervalSec, 10);
     if (Number.isNaN(value) || value < 5) {
-      toast.error('Polling interval must be at least 5 seconds');
+      toast.error(t('admin.system.polling.minError'));
       return;
     }
     saveConfig(value);
@@ -64,10 +66,8 @@ export function AdminSystemPage(): React.ReactNode {
   return (
     <div className="mx-auto max-w-4xl space-y-6">
       <div>
-        <h2 className="text-xl font-semibold text-slate-800">System Settings</h2>
-        <p className="mt-1 text-sm text-slate-500">
-          Manage global runtime settings and operational checks.
-        </p>
+        <h2 className="text-xl font-semibold text-slate-800">{t('admin.system.title')}</h2>
+        <p className="mt-1 text-sm text-slate-500">{t('admin.system.desc')}</p>
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">
@@ -75,15 +75,13 @@ export function AdminSystemPage(): React.ReactNode {
           <CardHeader>
             <div className="mb-1 flex items-center gap-2">
               <Clock className="size-4 text-blue-600" />
-              <CardTitle className="text-base font-semibold">Polling Control</CardTitle>
+              <CardTitle className="text-base font-semibold">{t('admin.system.polling.title')}</CardTitle>
             </div>
-            <CardDescription>
-              Configure frontend polling interval in seconds. Recommended range: 30 to 300.
-            </CardDescription>
+            <CardDescription>{t('admin.system.polling.desc')}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="polling-interval">Polling interval (sec)</Label>
+              <Label htmlFor="polling-interval">{t('admin.system.polling.label')}</Label>
               <Input
                 id="polling-interval"
                 type="number"
@@ -97,7 +95,7 @@ export function AdminSystemPage(): React.ReactNode {
           <CardFooter className="flex justify-end border-t bg-slate-50 px-6 py-4">
             <Button onClick={handleSave} disabled={isPending || isLoading} className="gap-2">
               <Save className="size-4" />
-              {isPending ? 'Saving...' : 'Save'}
+              {isPending ? t('admin.system.saving') : t('admin.system.save')}
             </Button>
           </CardFooter>
         </Card>
@@ -106,15 +104,15 @@ export function AdminSystemPage(): React.ReactNode {
           <CardHeader>
             <div className="mb-1 flex items-center gap-2">
               <Server className="size-4 text-emerald-600" />
-              <CardTitle className="text-base font-semibold">Service Health</CardTitle>
+              <CardTitle className="text-base font-semibold">{t('admin.system.health.title')}</CardTitle>
             </div>
-            <CardDescription>Quick status snapshot of core infrastructure services.</CardDescription>
+            <CardDescription>{t('admin.system.health.desc')}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
             {[
-              'API connectivity',
-              'Redis cache',
-              'PostgreSQL database',
+              t('admin.system.health.api'),
+              t('admin.system.health.redis'),
+              t('admin.system.health.db'),
             ].map((label) => (
               <div
                 key={label}
@@ -125,7 +123,7 @@ export function AdminSystemPage(): React.ReactNode {
                   variant="success"
                   className="bg-emerald-100 text-[10px] uppercase text-emerald-700 hover:bg-emerald-100"
                 >
-                  Online
+                  {t('admin.system.health.online')}
                 </Badge>
               </div>
             ))}
@@ -135,4 +133,3 @@ export function AdminSystemPage(): React.ReactNode {
     </div>
   );
 }
-

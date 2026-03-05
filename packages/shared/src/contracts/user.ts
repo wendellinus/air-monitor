@@ -26,3 +26,16 @@ export type AdminSetUserRoleRequest = {
 };
 
 export type UserFavoriteCityCreateRequest = CityItem;
+
+export type AdminFavoriteCityItem = {
+  userId: number;
+  username: string;
+  cityId: string;
+  cityName: string;
+  adm1: string;
+  adm2: string;
+  country: string;
+  createdAt: string;
+};
+
+export type AdminFavoriteCityListData = PageResult<AdminFavoriteCityItem>;

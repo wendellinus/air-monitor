@@ -51,6 +51,21 @@ describe('Auth (e2e)', () => {
 
     expect(me.body.code).toBe(0);
     expect(me.body.data.username).toBe(username);
+    expect(me.body.data.locale).toBe('zh-CN');
+
+    const updateLocale = await request(t.app.getHttpServer())
+      .post('/api/v1/user/me/locale')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ locale: 'en-US' });
+
+    expect(updateLocale.body.code).toBe(0);
+    expect(updateLocale.body.data.locale).toBe('en-US');
+
+    const meAfterLocaleUpdate = await request(t.app.getHttpServer())
+      .get('/api/v1/user/me')
+      .set('Authorization', `Bearer ${token}`);
+    expect(meAfterLocaleUpdate.body.code).toBe(0);
+    expect(meAfterLocaleUpdate.body.data.locale).toBe('en-US');
 
     const refreshed = await request(t.app.getHttpServer())
       .post('/api/v1/refresh')

@@ -1,6 +1,9 @@
 import { Inject, Injectable } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 
 import type { CityEntity } from '../city/city.repository';
+
+import type { DashboardLayoutItem } from '@air-monitor/shared';
 
 import { PrismaService } from '../../infra/prisma/prisma.service';
 import type { UserRole } from '../../shared/authz/user-role';
@@ -118,6 +121,57 @@ export class UserRepository {
     });
   }
 
+  async findProfileById(
+    id: number,
+  ): Promise<{
+    id: number;
+    username: string;
+    role: UserRole;
+    locale: string;
+  } | null> {
+    const rows = await this.prisma.$queryRaw<
+      Array<{ id: number; username: string; role: UserRole; locale: string }>
+    >`
+      SELECT "id", "username", "role", "locale"
+      FROM "User"
+      WHERE "id" = ${id} AND "deletedAt" IS NULL
+      LIMIT 1
+    `;
+    return rows[0] ?? null;
+  }
+
+  async findSelfProfileById(
+    id: number,
+  ): Promise<{
+    id: number;
+    username: string;
+    email: string | null;
+    role: UserRole;
+    locale: string;
+  } | null> {
+    return this.prisma.user.findFirst({
+      where: { id, deletedAt: null },
+      select: { id: true, username: true, email: true, role: true, locale: true },
+    });
+  }
+
+  async updateSelfProfile(
+    id: number,
+    profile: { username: string; email: string | null },
+  ): Promise<{
+    id: number;
+    username: string;
+    email: string | null;
+    role: UserRole;
+    locale: string;
+  }> {
+    return this.prisma.user.update({
+      where: { id },
+      data: { username: profile.username, email: profile.email },
+      select: { id: true, username: true, email: true, role: true, locale: true },
+    });
+  }
+
   async updateStatus(id: number, isActive: boolean, tokenInvalidBefore: Date): Promise<void> {
     await this.prisma.user.update({
       where: { id },
@@ -137,6 +191,14 @@ export class UserRepository {
       where: { id },
       data: { role, tokenInvalidBefore, tokenVersion: { increment: 1 } },
     });
+  }
+
+  async updateLocale(id: number, locale: string): Promise<void> {
+    await this.prisma.$executeRaw`
+      UPDATE "User"
+      SET "locale" = ${locale}
+      WHERE "id" = ${id}
+    `;
   }
 
   async revokeAllRefreshTokens(userId: number, now: Date): Promise<void> {
@@ -176,5 +238,145 @@ export class UserRepository {
       DELETE FROM "UserFavoriteCity"
       WHERE "userId" = ${userId} AND "cityId" = ${cityId}
     `;
+  }
+
+  async listFavoriteCitiesForAdmin(
+    page: number,
+    pageSize: number,
+    keyword: string | undefined,
+  ): Promise<{
+    list: Array<{
+      userId: number;
+      username: string;
+      cityId: string;
+      cityName: string;
+      adm1: string;
+      adm2: string;
+      country: string;
+      createdAt: Date;
+    }>;
+    total: number;
+  }> {
+    const likeKeyword = keyword?.trim() ? `%${keyword.trim()}%` : null;
+    const where = likeKeyword
+      ? Prisma.sql`WHERE (
+          u."username" ILIKE ${likeKeyword}
+          OR c."name" ILIKE ${likeKeyword}
+          OR c."adm1" ILIKE ${likeKeyword}
+          OR c."adm2" ILIKE ${likeKeyword}
+          OR c."country" ILIKE ${likeKeyword}
+        )`
+      : Prisma.empty;
+
+    const [countRows, list] = await this.prisma.$transaction([
+      this.prisma.$queryRaw<Array<{ total: bigint }>>`
+        SELECT COUNT(*)::bigint AS total
+        FROM "UserFavoriteCity" uf
+        INNER JOIN "User" u ON u."id" = uf."userId" AND u."deletedAt" IS NULL
+        INNER JOIN "City" c ON c."cityId" = uf."cityId"
+        ${where}
+      `,
+      this.prisma.$queryRaw<
+        Array<{
+          userId: number;
+          username: string;
+          cityId: string;
+          cityName: string;
+          adm1: string;
+          adm2: string;
+          country: string;
+          createdAt: Date;
+        }>
+      >`
+        SELECT
+          uf."userId",
+          u."username",
+          uf."cityId",
+          c."name" AS "cityName",
+          c."adm1",
+          c."adm2",
+          c."country",
+          uf."createdAt"
+        FROM "UserFavoriteCity" uf
+        INNER JOIN "User" u ON u."id" = uf."userId" AND u."deletedAt" IS NULL
+        INNER JOIN "City" c ON c."cityId" = uf."cityId"
+        ${where}
+        ORDER BY uf."createdAt" DESC
+        LIMIT ${pageSize}
+        OFFSET ${(page - 1) * pageSize}
+      `,
+    ]);
+
+    return {
+      list,
+      total: Number(countRows[0]?.total ?? 0n),
+    };
+  }
+
+  async findDashboardLayoutByUserId(
+    userId: number,
+  ): Promise<{
+    layout: DashboardLayoutItem[];
+    version: number;
+    updatedAt: Date;
+  } | null> {
+    const rows = await this.prisma.$queryRaw<
+      Array<{
+        layout: unknown;
+        version: number;
+        updatedAt: Date;
+      }>
+    >`
+      SELECT "layout", "version", "updatedAt"
+      FROM "UserDashboardLayout"
+      WHERE "userId" = ${userId}
+      LIMIT 1
+    `;
+    const found = rows[0];
+    if (!found) return null;
+    return {
+      layout: Array.isArray(found.layout) ? (found.layout as DashboardLayoutItem[]) : [],
+      version: found.version,
+      updatedAt: found.updatedAt,
+    };
+  }
+
+  async upsertDashboardLayout(
+    userId: number,
+    layout: DashboardLayoutItem[],
+    version: number,
+  ): Promise<{
+    layout: DashboardLayoutItem[];
+    version: number;
+    updatedAt: Date;
+  }> {
+    const rows = await this.prisma.$queryRaw<
+      Array<{
+        layout: unknown;
+        version: number;
+        updatedAt: Date;
+      }>
+    >(Prisma.sql`
+      INSERT INTO "UserDashboardLayout"
+        ("userId", "layout", "version", "createdAt", "updatedAt")
+      VALUES
+        (${userId}, ${JSON.stringify(layout)}::jsonb, ${version}, NOW(), NOW())
+      ON CONFLICT ("userId")
+      DO UPDATE SET
+        "layout" = EXCLUDED."layout",
+        "version" = EXCLUDED."version",
+        "updatedAt" = NOW()
+      RETURNING "layout", "version", "updatedAt"
+    `);
+    const saved = rows[0];
+    if (!saved) {
+      throw new Error('dashboard layout save failed');
+    }
+
+    return {
+      layout: Array.isArray(saved.layout) ? (saved.layout as DashboardLayoutItem[]) : [],
+      version: saved.version,
+      updatedAt: saved.updatedAt,
+    };
   }
 }

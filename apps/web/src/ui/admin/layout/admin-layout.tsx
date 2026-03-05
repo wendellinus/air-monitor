@@ -1,21 +1,15 @@
-﻿import React from 'react';
-import { Outlet, useNavigate } from 'react-router-dom';
-import { toast } from 'sonner';
-import type { MeResponseData } from '@air-monitor/shared';
+import React from 'react';
+import { Outlet } from 'react-router-dom';
 
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
-import { api } from '@/shared/api';
-import { clearTokens } from '@/shared/auth';
-import { useI18n } from '@/shared/i18n';
-import type { ApiResponse } from '@/shared/types';
 
 import { AppSidebar } from './app-sidebar';
+import { AdminAccessProvider } from './access-context';
 import { SiteHeader } from './site-header';
+import { useAdminSession } from './use-admin-session';
 
 export function AdminLayout(): React.ReactNode {
-  const nav = useNavigate();
-  const { t } = useI18n();
-  const [me, setMe] = React.useState<MeResponseData | null>(null);
+  const { me, permissionKeys, handleLogout } = useAdminSession();
 
   // Apply global admin light theme so Radix portals inherit correct vars
   React.useEffect(() => {
@@ -23,45 +17,27 @@ export function AdminLayout(): React.ReactNode {
     return () => document.documentElement.classList.remove('admin-page');
   }, []);
 
-  React.useEffect(() => {
-    let mounted = true;
-    api
-      .get<ApiResponse<MeResponseData>>('/user/me')
-      .then((res) => {
-        if (mounted) setMe(res.data.data);
-      })
-      .catch(() => {});
-    return () => {
-      mounted = false;
-    };
-  }, []);
-
-  function handleLogout() {
-    const doLogout = async () => {
-      try {
-        await api.post('/logout');
-      } catch {
-        /* noop */
-      }
-      clearTokens();
-      nav('/admin/login', { replace: true });
-      toast.success(t('admin.toast.logoutSuccess'));
-    };
-    void doLogout().catch(() => toast.error(t('admin.toast.logoutFail')));
-  }
-
   return (
-    <SidebarProvider>
-      <AppSidebar user={me} onLogout={handleLogout} />
+    <SidebarProvider className="h-svh max-h-svh overflow-hidden">
+      <AdminAccessProvider permissionKeys={permissionKeys}>
+        <AppSidebar user={me} onLogout={handleLogout} />
 
-      <SidebarInset>
-        <SiteHeader />
-        <main className="admin-enter flex-1 overflow-auto p-4 md:p-8 lg:p-10">
-          <div className="mx-auto max-w-7xl w-full h-full">
-            <Outlet />
-          </div>
-        </main>
-      </SidebarInset>
+        <SidebarInset className="h-full max-h-svh overflow-hidden">
+          <SiteHeader />
+          <main className="admin-enter flex min-h-0 flex-1 overflow-hidden p-4 md:p-8 lg:p-10">
+            <div className="mx-auto flex h-full min-h-0 w-full max-w-7xl flex-col overflow-hidden">
+              <div className="flex-1 min-h-0 overflow-hidden pr-1">
+                <div
+                  className="h-full min-h-0 overflow-auto [scrollbar-gutter:stable]"
+                  data-admin-outlet-viewport
+                >
+                  <Outlet />
+                </div>
+              </div>
+            </div>
+          </main>
+        </SidebarInset>
+      </AdminAccessProvider>
     </SidebarProvider>
   );
 }
