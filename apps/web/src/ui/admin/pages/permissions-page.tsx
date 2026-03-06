@@ -68,6 +68,7 @@ export function AdminPermissionsPage(): React.ReactNode {
           disabled={loading}
           isLoading={saving}
           loadingText={t('admin.permissions.saving')}
+          className="h-10 rounded-lg px-4"
         >
           <ShieldCheck className="mr-2 h-4 w-4" />
           {t('admin.permissions.save')}
@@ -75,10 +76,10 @@ export function AdminPermissionsPage(): React.ReactNode {
       }
     >
       <div className="grid h-full min-h-0 flex-1 grid-rows-[auto_minmax(0,1fr)] gap-4 overflow-hidden">
-        <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-card p-3">
-          <span className="text-sm text-muted-foreground">{t('admin.permissions.role')}</span>
+        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-200/80 bg-white p-3 shadow-[0_8px_24px_rgba(15,23,42,0.05)]">
+          <span className="text-sm font-medium text-slate-600">{t('admin.permissions.role')}</span>
           <Select value={targetRole} onValueChange={(value: UserRole) => setTargetRole(value)}>
-            <SelectTrigger className="w-[220px]">
+            <SelectTrigger className="h-10 w-[220px] border-slate-200">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -111,7 +112,7 @@ export function AdminPermissionsPage(): React.ReactNode {
             </Empty>
           </div>
         ) : (
-          <div className="grid h-full min-h-0 gap-4 overflow-hidden lg:grid-cols-[minmax(0,1fr)_180px_minmax(0,1fr)]">
+          <div className="grid h-full min-h-0 gap-4 overflow-hidden lg:grid-cols-[minmax(0,1fr)_190px_minmax(0,1fr)]">
             <TransferPanel
               title={t('admin.permissions.transfer.inactiveTitle')}
               searchPlaceholder={t('admin.permissions.transfer.inactiveSearch')}
@@ -121,7 +122,9 @@ export function AdminPermissionsPage(): React.ReactNode {
               onQueryChange={setInactiveQuery}
               items={inactivePermissions}
               checked={inactiveChecked}
+              checkedCount={inactiveChecked.size}
               onToggle={toggleInactiveChecked}
+              side="left"
             />
 
             <TransferActions
@@ -145,7 +148,9 @@ export function AdminPermissionsPage(): React.ReactNode {
               onQueryChange={setActiveQuery}
               items={activePermissions}
               checked={activeChecked}
+              checkedCount={activeChecked.size}
               onToggle={toggleActiveChecked}
+              side="right"
             />
           </div>
         )}

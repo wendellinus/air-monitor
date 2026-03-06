@@ -122,8 +122,12 @@ export function ResizableWidgetShell(props: ResizableWidgetProps): React.ReactNo
       defaultSize={{ width: '100%', height: '100%' }}
       enable={{ right: true, bottom: true, bottomRight: true }}
       handleComponent={{
-        right: <div className="pointer-events-auto absolute right-0 top-0 h-full w-2 cursor-ew-resize" />,
-        bottom: <div className="pointer-events-auto absolute bottom-0 left-0 h-2 w-full cursor-ns-resize" />,
+        right: (
+          <div className="pointer-events-auto absolute right-0 top-0 h-full w-1.5 cursor-ew-resize" />
+        ),
+        bottom: (
+          <div className="pointer-events-auto absolute bottom-0 left-0 h-1.5 w-full cursor-ns-resize" />
+        ),
         bottomRight: <WidgetResizeHandle locale={props.locale} active={props.isResizing} />,
       }}
       minWidth={minWidth}

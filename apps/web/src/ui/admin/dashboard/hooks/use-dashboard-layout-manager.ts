@@ -37,7 +37,6 @@ import {
 
 type ResizeSession = {
   id: DashboardWidgetId;
-  changed: boolean;
 };
 
 type DashboardLayoutManager = {
@@ -301,18 +300,12 @@ export function useDashboardLayoutManager(locale: string): DashboardLayoutManage
   );
 
   const onWidgetResizeStart = React.useCallback((id: DashboardWidgetId): void => {
-    resizeSessionRef.current = { id, changed: false };
+    resizeSessionRef.current = { id };
     setResizingId(id);
   }, []);
 
   const onWidgetResizeMove = React.useCallback(
-    (id: DashboardWidgetId, width: number, height: number, clientY?: number): void => {
-      const maxCol = Math.min(maxColSpanForViewport, getMaxColSpanForWidth(window.innerWidth));
-      const nextCol = spanFromWidth(width, gridMetrics, maxCol);
-      const nextRow = spanFromHeight(height, gridMetrics);
-      const current = latestLayoutRef.current.find((item) => item.id === id);
-      const changed = Boolean(current && (current.colSpan !== nextCol || current.rowSpan !== nextRow));
-
+    (_id: DashboardWidgetId, _width: number, _height: number, clientY?: number): void => {
       const viewport = scrollViewportRef.current;
       if (viewport && typeof clientY === 'number') {
         const rect = viewport.getBoundingClientRect();
@@ -325,23 +318,13 @@ export function useDashboardLayoutManager(locale: string): DashboardLayoutManage
           viewport.scrollTop -= Math.ceil(4 + ratio * 14);
         }
       }
-
-      if (!changed) return;
-
-      updateWidgetSpan(id, width, height, false);
-      if (resizeSessionRef.current?.id === id) {
-        resizeSessionRef.current.changed = true;
-      }
     },
-    [gridMetrics, maxColSpanForViewport, updateWidgetSpan],
+    [],
   );
 
   const onWidgetResizeStop = React.useCallback(
     (id: DashboardWidgetId, width: number, height: number): void => {
-      const changed = Boolean(resizeSessionRef.current?.changed);
-      if (changed) {
-        updateWidgetSpan(id, width, height, true);
-      }
+      updateWidgetSpan(id, width, height, true);
       resizeSessionRef.current = null;
       setResizingId(null);
     },

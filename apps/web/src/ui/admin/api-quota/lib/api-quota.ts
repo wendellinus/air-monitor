@@ -6,7 +6,7 @@ import type {
   ProviderType,
 } from '@air-monitor/shared';
 
-export type ChartType = 'line' | 'bar' | 'donut';
+export type ChartType = 'line' | 'area' | 'donut';
 export type ProviderFilter = ProviderType | 'all';
 export type RangePreset = '7d' | '30d';
 export type TranslateFn = (key: string, params?: Record<string, string | number>) => string;
@@ -87,36 +87,46 @@ export function buildLineOption(input: {
   };
 }
 
-export function buildBarOption(input: {
+export function buildAreaOption(input: {
   series?: ProviderTrendData['series'];
   t: TranslateFn;
+  locale: string;
 }): EChartsOption {
   const sourceSeries = input.series ?? [];
-  const bars = PROVIDERS.map((provider) => {
-    const found = sourceSeries.find((item) => item.provider === provider);
-    const latestValue =
-      found && found.points.length > 0 ? found.points[found.points.length - 1]?.value ?? 0 : 0;
-    return { provider, value: latestValue };
-  });
+  const timeKeys = Array.from(
+    new Set(sourceSeries.flatMap((series) => series.points.map((point) => point.time))),
+  ).sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
 
   return {
-    tooltip: { trigger: 'item' },
-    grid: { top: 20, left: 20, right: 20, bottom: 20, containLabel: true },
+    tooltip: { trigger: 'axis' },
+    legend: {
+      top: 0,
+      data: sourceSeries.map((series) => input.t(`admin.apiQuota.provider.${series.provider}`)),
+    },
+    grid: { top: 40, left: 20, right: 20, bottom: 20, containLabel: true },
     xAxis: {
       type: 'category',
-      data: bars.map((item) => input.t(`admin.apiQuota.provider.${item.provider}`)),
+      data: timeKeys.map((item) =>
+        new Date(item).toLocaleString(input.locale, { month: '2-digit', day: '2-digit' }),
+      ),
     },
     yAxis: { type: 'value' },
-    series: [
-      {
-        type: 'bar',
-        data: bars.map((item) => ({
-          value: item.value,
-          itemStyle: { color: chartColor(item.provider) },
-        })),
-        barWidth: 48,
-      },
-    ],
+    series: sourceSeries.map((series) => {
+      const byTime = new Map(series.points.map((point) => [point.time, point.value]));
+      return {
+        name: input.t(`admin.apiQuota.provider.${series.provider}`),
+        type: 'line',
+        smooth: true,
+        showSymbol: false,
+        data: timeKeys.map((item) => byTime.get(item) ?? null),
+        areaStyle: {
+          opacity: 0.22,
+          color: chartColor(series.provider),
+        },
+        lineStyle: { width: 2, color: chartColor(series.provider) },
+        itemStyle: { color: chartColor(series.provider) },
+      };
+    }),
   };
 }
 

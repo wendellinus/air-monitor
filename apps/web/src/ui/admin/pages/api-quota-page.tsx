@@ -48,6 +48,7 @@ export function AdminApiQuotaPage(): React.ReactNode {
             size="sm"
             label={t('admin.apiQuota.refresh')}
             onClick={refreshAction.run}
+            loading={refreshPending || refreshAction.locked}
             disabled={refreshPending || refreshAction.locked}
           />
         ) : undefined

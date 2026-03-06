@@ -48,8 +48,13 @@ export function AdminFavoritesPage(): React.ReactNode {
   }
 
   return (
-    <PageShell title={t('admin.favorites.title')} description={t('admin.favorites.desc')}>
-      <div className="space-y-3">
+    <PageShell
+      title={t('admin.favorites.title')}
+      description={t('admin.favorites.desc')}
+      fitHeight
+      bodyClassName="min-h-0"
+    >
+      <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden">
         <FavoritesToolbar
           t={t}
           inputValue={inputValue}
@@ -63,23 +68,28 @@ export function AdminFavoritesPage(): React.ReactNode {
           onRefresh={refreshAction.run}
         />
 
-        <FavoritesTableCard
-          t={t}
-          locale={locale}
-          isInitialLoading={isInitialLoading}
-          items={items}
-          removingKey={removingKey}
-          onRemove={(item) => void removeFavorite(item)}
-        />
+        <div className="min-h-0 flex-1 overflow-hidden">
+          <FavoritesTableCard
+            t={t}
+            locale={locale}
+            isInitialLoading={isInitialLoading}
+            items={items}
+            removingKey={removingKey}
+            className="h-full"
+            onRemove={(item) => void removeFavorite(item)}
+          />
+        </div>
 
-        <FavoritesPagination
-          t={t}
-          page={page}
-          totalPages={totalPages}
-          isRefreshing={isRefreshing}
-          onPrevPage={() => setPage((current) => current - 1)}
-          onNextPage={() => setPage((current) => current + 1)}
-        />
+        <div className="shrink-0">
+          <FavoritesPagination
+            t={t}
+            page={page}
+            totalPages={totalPages}
+            isRefreshing={isRefreshing}
+            onPrevPage={() => setPage((current) => current - 1)}
+            onNextPage={() => setPage((current) => current + 1)}
+          />
+        </div>
       </div>
     </PageShell>
   );

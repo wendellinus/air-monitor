@@ -13,7 +13,6 @@ import { CurrentUser } from '../auth/current-user.decorator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import type { JwtUser } from '../auth/types';
 
-import { PageQueryDto } from './dto/page-query.dto';
 import { SearchUserQueryDto } from './dto/search-user-query.dto';
 import { FavoriteCityDto } from './dto/favorite-city.dto';
 import { FavoriteCityParamDto } from './dto/favorite-city-param.dto';
@@ -112,8 +111,13 @@ export class UserController {
   @Roles('admin', 'operator')
   @Permissions('users.view')
   @Get('users')
-  async list(@Query() q: PageQueryDto): Promise<UserListData> {
-    return this.users.getUserList(q.page, q.pageSize);
+  async list(@Query() q: SearchUserQueryDto): Promise<UserListData> {
+    return this.users.searchUsers(q.keyword, q.page, q.pageSize, {
+      role: q.role,
+      isActive: q.isActive,
+      createdFrom: q.createdFrom,
+      createdTo: q.createdTo,
+    });
   }
 
   @ApiBearerAuth()
@@ -122,6 +126,11 @@ export class UserController {
   @Permissions('users.view')
   @Get('users/search')
   async search(@Query() q: SearchUserQueryDto): Promise<UserListData> {
-    return this.users.searchUsers(q.keyword, q.page, q.pageSize);
+    return this.users.searchUsers(q.keyword, q.page, q.pageSize, {
+      role: q.role,
+      isActive: q.isActive,
+      createdFrom: q.createdFrom,
+      createdTo: q.createdTo,
+    });
   }
 }

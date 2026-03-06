@@ -36,7 +36,7 @@ export function CitiesToolbar(props: CitiesToolbarProps): React.ReactNode {
         label={props.t('admin.common.refresh')}
         size="sm"
         onClick={props.onRefresh}
-        loading={props.isFetching && !props.isLoading}
+        loading={(props.isFetching && !props.isLoading) || props.refreshLocked}
         disabled={props.isFetching || props.refreshLocked}
         className="ml-auto"
       />

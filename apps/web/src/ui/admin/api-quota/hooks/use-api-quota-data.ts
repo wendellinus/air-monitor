@@ -8,6 +8,8 @@ import { type TranslateFn } from '@/ui/admin/api-quota/lib/api-quota';
 
 type UseApiQuotaDataInput = {
   t: TranslateFn;
+  enabled?: boolean;
+  pollingIntervalMs?: number;
 };
 
 type UseApiQuotaDataResult = {
@@ -18,7 +20,7 @@ type UseApiQuotaDataResult = {
 };
 
 export function useApiQuotaData(input: UseApiQuotaDataInput): UseApiQuotaDataResult {
-  const { t } = input;
+  const { t, enabled = true, pollingIntervalMs = 60_000 } = input;
   const queryClient = useQueryClient();
 
   const {
@@ -30,7 +32,8 @@ export function useApiQuotaData(input: UseApiQuotaDataInput): UseApiQuotaDataRes
       const response = await api.get<ApiResponse<ProviderOverviewData>>('/admin/provider-accounts/overview');
       return response.data.data;
     },
-    refetchInterval: 60_000,
+    enabled,
+    refetchInterval: pollingIntervalMs,
     placeholderData: (previousData) => previousData,
   });
 
@@ -59,7 +62,7 @@ export function useApiQuotaData(input: UseApiQuotaDataInput): UseApiQuotaDataRes
   return {
     overview,
     overviewLoading,
-    refresh: refreshMutation.mutate,
+    refresh: enabled ? refreshMutation.mutate : () => undefined,
     refreshPending: refreshMutation.isPending,
   };
 }

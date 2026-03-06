@@ -3,7 +3,6 @@ import { createBrowserRouter, Navigate } from 'react-router-dom';
 
 import { getAccessToken } from './auth';
 import {
-  AdminApiQuotaPage,
   AdminCitiesPage,
   AdminDashboard,
   AdminFavoritesPage,
@@ -47,7 +46,7 @@ export const router = createBrowserRouter([
       { path: 'favorites', element: <AdminFavoritesPage /> },
       { path: 'system', element: <AdminSystemPage /> },
       { path: 'permissions', element: <AdminPermissionsPage /> },
-      { path: 'api-quota', element: <AdminApiQuotaPage /> },
+      { path: 'api-quota', element: <Navigate to="/admin/system?tab=qweather" replace /> },
       { path: 'profile-settings', element: <AdminProfileSettingsPage /> },
     ],
   },

@@ -1,113 +1,75 @@
-/**
- * DateTimePicker — Popover + Calendar + time Input
- * 使用 shadcn Popover + Calendar 实现日期时间选择，替代原生 datetime-local 控件
- */
 import * as React from 'react';
-import { format, isValid } from 'date-fns';
-import { CalendarIcon } from 'lucide-react';
+import { isValid } from 'date-fns';
+import { enUS, zhCN } from 'date-fns/locale';
 
-import { Calendar } from '@/components/ui/calendar';
-import { Input } from '@/components/ui/input';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Button } from '@/components/ui/button';
+import { DateTimePicker as HuyDateTimePicker } from '@/components/ui/huy-datetime-picker';
 import { cn } from '@/lib/utils';
+import { useI18n } from '@/shared/i18n';
 
 interface DateTimePickerProps {
-  /** ISO string value */
   value: string;
   onChange: (isoString: string) => void;
   placeholder?: string;
   id?: string;
   disabled?: boolean;
   className?: string;
+  modal?: boolean;
 }
+
+const DEFAULT_PLACEHOLDER_ZH = '选择日期时间';
+const DEFAULT_PLACEHOLDER_EN = 'Pick a date and time';
 
 export function DateTimePicker({
   value,
   onChange,
-  placeholder = '选择日期时间',
-  id,
+  placeholder,
+  id: _id,
   disabled,
   className,
-}: DateTimePickerProps) {
-  const [open, setOpen] = React.useState(false);
+  modal = false,
+}: DateTimePickerProps): React.ReactNode {
+  const { locale } = useI18n();
+  const isZh = locale.startsWith('zh');
 
-  // Parse the current string value into a Date
-  const currentDate = React.useMemo(() => {
+  const dateValue = React.useMemo(() => {
     if (!value) return undefined;
-    const d = new Date(value);
-    return isValid(d) ? d : undefined;
+    const date = new Date(value);
+    return isValid(date) ? date : undefined;
   }, [value]);
 
-  // Time as "HH:MM" string (editable)
-  const [timeStr, setTimeStr] = React.useState<string>(() => {
-    if (!currentDate) return '00:00';
-    return format(currentDate, 'HH:mm');
-  });
-
-  // When user picks a day on the calendar
-  function handleDaySelect(day: Date | undefined) {
-    if (!day) return;
-    const [hours, minutes] = parseTime(timeStr);
-    const combined = new Date(day);
-    combined.setHours(hours, minutes, 0, 0);
-    onChange(combined.toISOString());
-    setOpen(false);
-  }
-
-  // When user edits the time input
-  function handleTimeChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const t = e.target.value;
-    setTimeStr(t);
-    if (currentDate) {
-      const [hours, minutes] = parseTime(t);
-      const combined = new Date(currentDate);
-      combined.setHours(hours, minutes, 0, 0);
-      onChange(combined.toISOString());
-    }
-  }
-
-  const displayLabel = currentDate
-    ? `${format(currentDate, 'yyyy-MM-dd')}  ${timeStr}`
-    : placeholder;
+  const textPack = React.useMemo(
+    () =>
+      isZh
+        ? {
+            pickDateTime: '选择日期时间',
+            clearDate: '清空日期',
+            done: '完成',
+            timezone: '时区',
+          }
+        : {
+            pickDateTime: 'Pick a date and time',
+            clearDate: 'Clear date',
+            done: 'Done',
+            timezone: 'Timezone',
+          },
+    [isZh]
+  );
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          id={id}
-          variant="outline"
-          disabled={disabled}
-          className={cn(
-            'w-full justify-start text-left font-normal',
-            !currentDate && 'text-muted-foreground',
-            className,
-          )}
-        >
-          <CalendarIcon className="mr-2 size-4 shrink-0 opacity-70" />
-          <span className="truncate">{displayLabel}</span>
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className="w-auto p-0" align="start">
-        <Calendar mode="single" selected={currentDate} onSelect={handleDaySelect} initialFocus />
-        {/* Time row */}
-        <div className="flex items-center gap-2 border-t px-3 py-2">
-          <span className="text-xs text-muted-foreground">时间</span>
-          <Input
-            type="time"
-            value={timeStr}
-            onChange={handleTimeChange}
-            className="h-8 w-[110px] text-sm"
-          />
-        </div>
-      </PopoverContent>
-    </Popover>
+    <HuyDateTimePicker
+      modal={modal}
+      value={dateValue}
+      clearable
+      disabled={disabled}
+      placeholder={placeholder || (isZh ? DEFAULT_PLACEHOLDER_ZH : DEFAULT_PLACEHOLDER_EN)}
+      texts={textPack}
+      locale={isZh ? zhCN : enUS}
+      onChange={(nextDate) => onChange(nextDate ? nextDate.toISOString() : '')}
+      use12HourFormat={false}
+      timePicker={{ hour: true, minute: true, second: false }}
+      classNames={{
+        trigger: cn('h-10 rounded-lg border-border/80 text-sm', className),
+      }}
+    />
   );
-}
-
-function parseTime(t: string): [number, number] {
-  const parts = t.split(':');
-  const hours = Math.min(23, Math.max(0, parseInt(parts[0] ?? '0', 10)));
-  const minutes = Math.min(59, Math.max(0, parseInt(parts[1] ?? '0', 10)));
-  return [isNaN(hours) ? 0 : hours, isNaN(minutes) ? 0 : minutes];
 }

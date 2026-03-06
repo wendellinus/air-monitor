@@ -42,6 +42,13 @@ const DASHBOARD_DEFAULT_SIZE: Record<DashboardWidgetId, { colSpan: number; rowSp
   'panel-recent-notices': { colSpan: 2, rowSpan: 2 },
 };
 
+type UserQueryFilters = {
+  role?: UserRole;
+  isActive?: boolean;
+  createdFrom?: string;
+  createdTo?: string;
+};
+
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
 }
@@ -162,8 +169,8 @@ export class UserService {
     };
   }
 
-  async getUserList(page: number, pageSize: number): Promise<UserListData> {
-    const { list, total } = await this.repo.list(page, pageSize);
+  async getUserList(page: number, pageSize: number, filters?: UserQueryFilters): Promise<UserListData> {
+    const { list, total } = await this.repo.list(page, pageSize, this.normalizeUserFilters(filters));
     return {
       list: list.map<UserListItem>((u) => ({
         id: u.id,
@@ -183,8 +190,14 @@ export class UserService {
     keyword: string | undefined,
     page: number,
     pageSize: number,
+    filters?: UserQueryFilters,
   ): Promise<UserListData> {
-    const { list, total } = await this.repo.search(keyword, page, pageSize);
+    const { list, total } = await this.repo.search(
+      keyword,
+      page,
+      pageSize,
+      this.normalizeUserFilters(filters),
+    );
     return {
       list: list.map<UserListItem>((u) => ({
         id: u.id,
@@ -349,5 +362,53 @@ export class UserService {
       layout: normalizeDashboardLayout(saved.layout),
       updatedAt: saved.updatedAt.toISOString(),
     };
+  }
+
+  private normalizeUserFilters(filters?: UserQueryFilters): {
+    role?: UserRole;
+    isActive?: boolean;
+    createdFrom?: Date;
+    createdTo?: Date;
+  } {
+    if (!filters) return {};
+
+    const normalized: {
+      role?: UserRole;
+      isActive?: boolean;
+      createdFrom?: Date;
+      createdTo?: Date;
+    } = {};
+
+    if (filters.role) {
+      normalized.role = filters.role;
+    }
+    if (typeof filters.isActive === 'boolean') {
+      normalized.isActive = filters.isActive;
+    }
+
+    if (filters.createdFrom) {
+      const fromDate = new Date(filters.createdFrom);
+      if (!Number.isNaN(fromDate.getTime())) {
+        normalized.createdFrom = fromDate;
+      }
+    }
+    if (filters.createdTo) {
+      const toDate = new Date(filters.createdTo);
+      if (!Number.isNaN(toDate.getTime())) {
+        normalized.createdTo = toDate;
+      }
+    }
+
+    if (
+      normalized.createdFrom &&
+      normalized.createdTo &&
+      normalized.createdFrom.getTime() > normalized.createdTo.getTime()
+    ) {
+      const swap = normalized.createdFrom;
+      normalized.createdFrom = normalized.createdTo;
+      normalized.createdTo = swap;
+    }
+
+    return normalized;
   }
 }

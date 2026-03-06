@@ -12,8 +12,13 @@ export function AdminCitiesPage(): React.ReactNode {
   const refreshAction = useRateLimitedAction(() => refetch(), { cooldownMs: 800 });
 
   return (
-    <PageShell title={t('admin.cities.title')} description={t('admin.cities.desc')}>
-      <div className="space-y-3">
+    <PageShell
+      title={t('admin.cities.title')}
+      description={t('admin.cities.desc')}
+      fitHeight
+      bodyClassName="min-h-0 overflow-auto"
+    >
+      <div className="flex min-h-0 flex-col gap-3">
         <CitiesToolbar
           t={t}
           table={table}
@@ -24,9 +29,19 @@ export function AdminCitiesPage(): React.ReactNode {
           onRefresh={refreshAction.run}
         />
 
-        <CitiesTableCard t={t} table={table} columnsCount={columnsCount} isLoading={isLoading} />
+        <div className="min-h-0 overflow-hidden">
+          <CitiesTableCard
+            t={t}
+            table={table}
+            columnsCount={columnsCount}
+            isLoading={isLoading}
+            className="max-h-[min(70vh,720px)]"
+          />
+        </div>
 
-        <CitiesPagination t={t} table={table} />
+        <div className="shrink-0">
+          <CitiesPagination t={t} table={table} />
+        </div>
       </div>
     </PageShell>
   );

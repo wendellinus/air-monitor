@@ -4,7 +4,13 @@ import type { UserListData } from '@air-monitor/shared';
 
 import { api } from '@/shared/api';
 import type { ApiResponse } from '@/shared/types';
-import type { TranslateFn, UserItem, UserPageRole } from '@/ui/admin/users/lib/types';
+import type {
+  TranslateFn,
+  UserFilterRole,
+  UserFilterStatus,
+  UserItem,
+  UserPageRole,
+} from '@/ui/admin/users/lib/types';
 
 const PAGE_SIZE = 15;
 
@@ -20,6 +26,10 @@ type UseAdminUsersResult = {
   page: number;
   keyword: string;
   inputValue: string;
+  roleFilter: UserFilterRole;
+  statusFilter: UserFilterStatus;
+  createdFrom: string;
+  createdTo: string;
   isInitialLoading: boolean;
   isRefreshing: boolean;
   resetTarget: UserItem | null;
@@ -27,9 +37,14 @@ type UseAdminUsersResult = {
   resetting: boolean;
   setPage: React.Dispatch<React.SetStateAction<number>>;
   setInputValue: React.Dispatch<React.SetStateAction<string>>;
+  setRoleFilter: React.Dispatch<React.SetStateAction<UserFilterRole>>;
+  setStatusFilter: React.Dispatch<React.SetStateAction<UserFilterStatus>>;
+  setCreatedFrom: React.Dispatch<React.SetStateAction<string>>;
+  setCreatedTo: React.Dispatch<React.SetStateAction<string>>;
   setNewPassword: React.Dispatch<React.SetStateAction<string>>;
   handleSearch: () => void;
   clearSearch: () => void;
+  clearFilters: () => void;
   refresh: () => Promise<void>;
   toggleActive: (user: UserItem) => Promise<void>;
   setRole: (user: UserItem, role: UserPageRole) => Promise<void>;
@@ -45,6 +60,10 @@ export function useAdminUsers(input: UseAdminUsersInput): UseAdminUsersResult {
   const [page, setPage] = React.useState<number>(1);
   const [keyword, setKeyword] = React.useState<string>('');
   const [inputValue, setInputValue] = React.useState<string>('');
+  const [roleFilter, setRoleFilter] = React.useState<UserFilterRole>('all');
+  const [statusFilter, setStatusFilter] = React.useState<UserFilterStatus>('all');
+  const [createdFrom, setCreatedFrom] = React.useState<string>('');
+  const [createdTo, setCreatedTo] = React.useState<string>('');
   const [isInitialLoading, setIsInitialLoading] = React.useState<boolean>(true);
   const [isRefreshing, setIsRefreshing] = React.useState<boolean>(false);
 
@@ -69,10 +88,28 @@ export function useAdminUsers(input: UseAdminUsersInput): UseAdminUsersResult {
 
       try {
         const endpoint = kw.trim() ? '/users/search' : '/users';
+        const requestParams: Record<string, string | number | boolean> = {
+          page: targetPage,
+          pageSize: PAGE_SIZE,
+        };
+        if (kw.trim()) {
+          requestParams.keyword = kw.trim();
+        }
+        if (roleFilter !== 'all') {
+          requestParams.role = roleFilter;
+        }
+        if (statusFilter !== 'all') {
+          requestParams.isActive = statusFilter === 'active';
+        }
+        if (createdFrom) {
+          requestParams.createdFrom = createdFrom;
+        }
+        if (createdTo) {
+          requestParams.createdTo = createdTo;
+        }
+
         const response = await api.get<ApiResponse<UserListData>>(endpoint, {
-          params: kw.trim()
-            ? { keyword: kw.trim(), page: targetPage, pageSize: PAGE_SIZE }
-            : { page: targetPage, pageSize: PAGE_SIZE },
+          params: requestParams,
         });
         setUsers(response.data.data.list);
         setTotal(response.data.data.total);
@@ -86,14 +123,14 @@ export function useAdminUsers(input: UseAdminUsersInput): UseAdminUsersResult {
         }
       }
     },
-    [t],
+    [createdFrom, createdTo, roleFilter, statusFilter, t],
   );
 
   React.useEffect(() => {
     const mode = firstLoadRef.current ? 'initial' : 'refresh';
     firstLoadRef.current = false;
     void loadUsers(page, keyword, mode);
-  }, [keyword, loadUsers, page]);
+  }, [createdFrom, createdTo, keyword, loadUsers, page, roleFilter, statusFilter]);
 
   const handleSearch = React.useCallback((): void => {
     setPage(1);
@@ -103,6 +140,14 @@ export function useAdminUsers(input: UseAdminUsersInput): UseAdminUsersResult {
   const clearSearch = React.useCallback((): void => {
     setInputValue('');
     setKeyword('');
+    setPage(1);
+  }, []);
+
+  const clearFilters = React.useCallback((): void => {
+    setRoleFilter('all');
+    setStatusFilter('all');
+    setCreatedFrom('');
+    setCreatedTo('');
     setPage(1);
   }, []);
 
@@ -187,6 +232,10 @@ export function useAdminUsers(input: UseAdminUsersInput): UseAdminUsersResult {
     page,
     keyword,
     inputValue,
+    roleFilter,
+    statusFilter,
+    createdFrom,
+    createdTo,
     isInitialLoading,
     isRefreshing,
     resetTarget,
@@ -194,9 +243,14 @@ export function useAdminUsers(input: UseAdminUsersInput): UseAdminUsersResult {
     resetting,
     setPage,
     setInputValue,
+    setRoleFilter,
+    setStatusFilter,
+    setCreatedFrom,
+    setCreatedTo,
     setNewPassword,
     handleSearch,
     clearSearch,
+    clearFilters,
     refresh,
     toggleActive,
     setRole,

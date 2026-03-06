@@ -21,6 +21,10 @@ export function AdminUsersPage(): React.ReactNode {
     page,
     keyword,
     inputValue,
+    roleFilter,
+    statusFilter,
+    createdFrom,
+    createdTo,
     isInitialLoading,
     isRefreshing,
     resetTarget,
@@ -28,9 +32,14 @@ export function AdminUsersPage(): React.ReactNode {
     resetting,
     setPage,
     setInputValue,
+    setRoleFilter,
+    setStatusFilter,
+    setCreatedFrom,
+    setCreatedTo,
     setNewPassword,
     handleSearch,
     clearSearch,
+    clearFilters,
     refresh,
     toggleActive,
     setRole,
@@ -41,40 +50,71 @@ export function AdminUsersPage(): React.ReactNode {
   const refreshAction = useRateLimitedAction(() => refresh(), { cooldownMs: 800 });
 
   return (
-    <PageShell title={t('admin.users.title')} description={t('admin.users.total', { total })}>
-      <div className="space-y-3">
+    <PageShell
+      title={t('admin.users.title')}
+      description={t('admin.users.total', { total })}
+      fitHeight
+      bodyClassName="min-h-0"
+    >
+      <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden">
         <UsersToolbar
           t={t}
           inputValue={inputValue}
           keyword={keyword}
+          roleFilter={roleFilter}
+          statusFilter={statusFilter}
+          createdFrom={createdFrom}
+          createdTo={createdTo}
           isRefreshing={isRefreshing}
           isInitialLoading={isInitialLoading}
           refreshLocked={refreshAction.locked}
           onInputChange={setInputValue}
           onSearch={handleSearch}
           onClearSearch={clearSearch}
+          onRoleChange={(value) => {
+            setPage(1);
+            setRoleFilter(value);
+          }}
+          onStatusChange={(value) => {
+            setPage(1);
+            setStatusFilter(value);
+          }}
+          onCreatedFromChange={(value) => {
+            setPage(1);
+            setCreatedFrom(value);
+          }}
+          onCreatedToChange={(value) => {
+            setPage(1);
+            setCreatedTo(value);
+          }}
+          onClearFilters={clearFilters}
           onRefresh={refreshAction.run}
         />
 
-        <UsersTableCard
-          t={t}
-          locale={locale}
-          users={users}
-          isInitialLoading={isInitialLoading}
-          pageSize={pageSize}
-          onToggleActive={(user) => void toggleActive(user)}
-          onSetRole={(user, role) => void setRole(user, role)}
-          onOpenResetDialog={openResetDialog}
-        />
+        <div className="min-h-0 flex-1 overflow-hidden">
+          <UsersTableCard
+            t={t}
+            locale={locale}
+            users={users}
+            isInitialLoading={isInitialLoading}
+            pageSize={pageSize}
+            className="h-full"
+            onToggleActive={(user) => void toggleActive(user)}
+            onSetRole={(user, role) => void setRole(user, role)}
+            onOpenResetDialog={openResetDialog}
+          />
+        </div>
 
-        <UsersPagination
-          t={t}
-          page={page}
-          totalPages={totalPages}
-          isRefreshing={isRefreshing}
-          onPrevPage={() => setPage((current) => current - 1)}
-          onNextPage={() => setPage((current) => current + 1)}
-        />
+        <div className="shrink-0">
+          <UsersPagination
+            t={t}
+            page={page}
+            totalPages={totalPages}
+            isRefreshing={isRefreshing}
+            onPrevPage={() => setPage((current) => current - 1)}
+            onNextPage={() => setPage((current) => current + 1)}
+          />
+        </div>
       </div>
 
       <ResetPasswordDialog

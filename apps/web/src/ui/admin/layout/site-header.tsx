@@ -24,7 +24,6 @@ const BREADCRUMB_KEYS: Record<string, MessageKey> = {
   '/admin/cities': 'admin.nav.cities',
   '/admin/favorites': 'admin.nav.favorites',
   '/admin/system': 'admin.nav.system',
-  '/admin/api-quota': 'admin.nav.apiQuota',
   '/admin/permissions': 'admin.nav.permissions',
 };
 

@@ -3,7 +3,6 @@ import {
   BarChart3,
   Bell,
   ChevronRight,
-  DatabaseZap,
   MapPin,
   Settings,
   ShieldCheck,
@@ -42,13 +41,6 @@ const NAV_ITEMS: Array<{
   { to: '/admin/favorites', labelKey: 'admin.nav.favorites', permissionKey: 'favorites.view', icon: Star, end: false },
   { to: '/admin/system', labelKey: 'admin.nav.system', permissionKey: 'system.view', icon: Settings, end: false },
   {
-    to: '/admin/api-quota',
-    labelKey: 'admin.nav.apiQuota',
-    permissionKey: 'apiQuota.view',
-    icon: DatabaseZap,
-    end: false,
-  },
-  {
     to: '/admin/permissions',
     labelKey: 'admin.nav.permissions',
     permissionKey: 'permissions.view',
@@ -64,7 +56,6 @@ const NAV_TOUR_ID_MAP: Record<string, string> = {
   '/admin/cities': 'nav-cities',
   '/admin/favorites': 'nav-favorites',
   '/admin/system': 'nav-system',
-  '/admin/api-quota': 'nav-api-quota',
   '/admin/permissions': 'nav-permissions',
 };
 

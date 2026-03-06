@@ -436,6 +436,16 @@ a {
   text-decoration: none;
 }
 
+.no-visible-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.no-visible-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
 .hint {
   font-size: 12px;
   color: var(--muted);

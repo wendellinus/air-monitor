@@ -46,7 +46,7 @@ export function FavoritesToolbar(props: FavoritesToolbarProps): React.ReactNode 
       <RefreshIconButton
         label={props.t('admin.common.refresh')}
         onClick={props.onRefresh}
-        loading={props.isRefreshing}
+        loading={props.isRefreshing || props.refreshLocked}
         disabled={props.isRefreshing || props.isInitialLoading || props.refreshLocked}
       />
     </div>

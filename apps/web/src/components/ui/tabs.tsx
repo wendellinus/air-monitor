@@ -17,7 +17,9 @@ export const Tabs = ({
   containerClassName,
   activeTabClassName,
   tabClassName,
+  contentWrapperClassName,
   contentClassName,
+  motionPreset = "default",
 }: {
   tabs: Tab[];
   defaultValue?: string;
@@ -25,7 +27,9 @@ export const Tabs = ({
   containerClassName?: string;
   activeTabClassName?: string;
   tabClassName?: string;
+  contentWrapperClassName?: string;
   contentClassName?: string;
+  motionPreset?: "default" | "subtle" | "admin";
 }) => {
   const initialTabs = useMemo<Tab[]>(() => {
     if (!defaultValue) return propTabs;
@@ -90,7 +94,14 @@ export const Tabs = ({
               />
             )}
 
-            <span className="relative block text-black dark:text-white">
+            <span
+              className={cn(
+                "relative block",
+                active.value === tab.value
+                  ? "font-semibold text-slate-900"
+                  : "text-slate-600 dark:text-white"
+              )}
+            >
               {tab.title}
             </span>
           </button>
@@ -101,6 +112,8 @@ export const Tabs = ({
         active={active}
         key={active.value}
         hovering={hovering}
+        motionPreset={motionPreset}
+        wrapperClassName={contentWrapperClassName}
         className={cn("mt-32", contentClassName)}
       />
     </>
@@ -109,37 +122,82 @@ export const Tabs = ({
 
 export const FadeInDiv = ({
   className,
+  wrapperClassName,
   tabs,
   hovering,
+  motionPreset = "default",
 }: {
   className?: string;
+  wrapperClassName?: string;
   key?: string;
   tabs: Tab[];
   active: Tab;
   hovering?: boolean;
+  motionPreset?: "default" | "subtle" | "admin";
 }) => {
   const isActive = (tab: Tab) => {
     return tab.value === tabs[0].value;
   };
+
+  const cfg = motionPreset === "subtle"
+    ? {
+        scaleStep: 0.04,
+        hoverLift: 8,
+        maxVisibleLayers: 2,
+        activeBounce: [0, 10, 0] as number[],
+        inactiveOpacity: 0.1,
+        inactiveBlur: 1,
+      }
+    : motionPreset === "admin"
+      ? {
+          scaleStep: 0.018,
+          hoverLift: 0,
+          maxVisibleLayers: 1,
+          activeBounce: [0, 6, 0] as number[],
+          inactiveOpacity: 0,
+          inactiveBlur: 0,
+        }
+      : {
+          scaleStep: 0.1,
+          hoverLift: 50,
+          maxVisibleLayers: 3,
+          activeBounce: [0, 40, 0] as number[],
+          inactiveOpacity: 0.3,
+          inactiveBlur: 0,
+        };
+
   return (
-    <div className="relative w-full h-full">
+    <div className={cn("relative w-full h-full", wrapperClassName)}>
       {tabs.map((tab, idx) => (
+        (() => {
+          const activeLayer = isActive(tab);
+          const hiddenByDepth = idx >= cfg.maxVisibleLayers;
+          const layerOpacity = activeLayer ? 1 : hiddenByDepth ? 0 : cfg.inactiveOpacity;
+          const layerBlur = activeLayer ? 0 : cfg.inactiveBlur;
+          return (
         <motion.div
           key={tab.value}
           layoutId={tab.value}
           style={{
-            scale: 1 - idx * 0.1,
-            top: hovering ? idx * -50 : 0,
+            scale: 1 - idx * cfg.scaleStep,
+            top: hovering ? idx * -cfg.hoverLift : 0,
             zIndex: -idx,
-            opacity: idx < 3 ? 1 - idx * 0.1 : 0,
+            opacity: layerOpacity,
+            filter: `blur(${layerBlur}px)`,
           }}
           animate={{
-            y: isActive(tab) ? [0, 40, 0] : 0,
+            y: activeLayer ? cfg.activeBounce : 0,
           }}
-          className={cn("w-full h-full absolute top-0 left-0", className)}
+          className={cn(
+            "w-full h-full absolute top-0 left-0",
+            !activeLayer ? "pointer-events-none select-none" : undefined,
+            className
+          )}
         >
           {tab.content}
         </motion.div>
+          );
+        })()
       ))}
     </div>
   );

@@ -1,5 +1,5 @@
 import { Type } from 'class-transformer';
-import { IsIn, IsInt, IsOptional, Max, Min } from 'class-validator';
+import { IsDate, IsIn, IsInt, IsOptional, Max, Min } from 'class-validator';
 
 import { NoticeStatus } from '../notice.constants';
 
@@ -20,5 +20,14 @@ export class AdminNoticeListQueryDto {
   @IsOptional()
   @IsIn(StatusValues)
   status?: (typeof StatusValues)[number];
-}
 
+  @IsOptional()
+  @Type(() => Date)
+  @IsDate()
+  effectiveFrom?: Date;
+
+  @IsOptional()
+  @Type(() => Date)
+  @IsDate()
+  effectiveTo?: Date;
+}

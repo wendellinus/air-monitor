@@ -69,11 +69,11 @@ export function ApiQuotaChartCard(props: ApiQuotaChartCardProps): React.ReactNod
               {t('admin.apiQuota.chartType.line')}
             </Button>
             <Button
-              variant={props.chartType === 'bar' ? 'default' : 'outline'}
+              variant={props.chartType === 'area' ? 'default' : 'outline'}
               size="sm"
-              onClick={() => props.onChartTypeChange('bar')}
+              onClick={() => props.onChartTypeChange('area')}
             >
-              {t('admin.apiQuota.chartType.bar')}
+              {t('admin.apiQuota.chartType.area')}
             </Button>
             <Button
               variant={props.chartType === 'donut' ? 'default' : 'outline'}

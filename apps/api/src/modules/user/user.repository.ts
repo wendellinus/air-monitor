@@ -12,6 +12,41 @@ import type { UserRole } from '../../shared/authz/user-role';
 export class UserRepository {
   constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
 
+  private buildUserListWhere(
+    keyword: string | undefined,
+    filters?: {
+      role?: UserRole;
+      isActive?: boolean;
+      createdFrom?: Date;
+      createdTo?: Date;
+    },
+  ): Prisma.UserWhereInput {
+    const where: Prisma.UserWhereInput = { deletedAt: null };
+
+    if (keyword?.trim()) {
+      where.username = { contains: keyword.trim(), mode: 'insensitive' };
+    }
+    if (filters?.role) {
+      where.role = filters.role;
+    }
+    if (typeof filters?.isActive === 'boolean') {
+      where.isActive = filters.isActive;
+    }
+
+    if (filters?.createdFrom || filters?.createdTo) {
+      const createdAtFilter: Prisma.DateTimeFilter = {};
+      if (filters.createdFrom) {
+        createdAtFilter.gte = filters.createdFrom;
+      }
+      if (filters.createdTo) {
+        createdAtFilter.lte = filters.createdTo;
+      }
+      where.createdAt = createdAtFilter;
+    }
+
+    return where;
+  }
+
   async existsByUsername(username: string): Promise<boolean> {
     const found = await this.prisma.user.findFirst({
       where: { username, deletedAt: null },
@@ -36,6 +71,12 @@ export class UserRepository {
   async list(
     page: number,
     pageSize: number,
+    filters?: {
+      role?: UserRole;
+      isActive?: boolean;
+      createdFrom?: Date;
+      createdTo?: Date;
+    },
   ): Promise<{
     list: Array<{
       id: number;
@@ -47,30 +88,19 @@ export class UserRepository {
     }>;
     total: number;
   }> {
-    const [total, list] = await this.prisma.$transaction([
-      this.prisma.user.count({ where: { deletedAt: null } }),
-      this.prisma.user.findMany({
-        where: { deletedAt: null },
-        orderBy: { id: 'desc' },
-        skip: (page - 1) * pageSize,
-        take: pageSize,
-        select: {
-          id: true,
-          username: true,
-          email: true,
-          role: true,
-          isActive: true,
-          createdAt: true,
-        },
-      }),
-    ]);
-    return { list, total };
+    return this.search(undefined, page, pageSize, filters);
   }
 
   async search(
     keyword: string | undefined,
     page: number,
     pageSize: number,
+    filters?: {
+      role?: UserRole;
+      isActive?: boolean;
+      createdFrom?: Date;
+      createdTo?: Date;
+    },
   ): Promise<{
     list: Array<{
       id: number;
@@ -82,9 +112,7 @@ export class UserRepository {
     }>;
     total: number;
   }> {
-    const where = keyword
-      ? { deletedAt: null, username: { contains: keyword, mode: 'insensitive' as const } }
-      : { deletedAt: null };
+    const where = this.buildUserListWhere(keyword, filters);
 
     const [total, list] = await this.prisma.$transaction([
       this.prisma.user.count({ where }),

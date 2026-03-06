@@ -75,7 +75,6 @@ export function ScreenPage(): React.ReactNode {
   const tone = aqiTone(air?.aqi ?? 0);
 
   const trimmedSearchKeyword = searchKeyword.trim();
-  const marquee = notices.length > 0 ? notices.map((notice) => notice.title).join(' · ') : '暂无公告';
 
   const selectedAlerts: WeatherAlertItem[] = Array.isArray(alerts?.alerts) ? alerts.alerts : [];
   const primaryAlert = pickPrimaryAlert(selectedAlerts);
@@ -214,7 +213,13 @@ export function ScreenPage(): React.ReactNode {
 
       <ScreenStage className="pointer-events-none">
         <div className="pointer-events-none relative flex h-full w-full flex-col gap-3 p-0">
-          <ScreenTopBar marquee={marquee} now={now} searchOpen={searchOpen} onOpenSearch={openSearch} />
+          <ScreenTopBar
+            notices={notices}
+            now={now}
+            searchOpen={searchOpen}
+            isLoggedIn={canManageFavorites}
+            onOpenSearch={openSearch}
+          />
 
           <ScreenSearchOverlay
             open={searchOpen}

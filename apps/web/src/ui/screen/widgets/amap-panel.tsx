@@ -6,6 +6,11 @@ import { wgs84ToGcj02, type LonLat } from '@/lib/coords';
 import { cn } from '@/lib/utils';
 
 type Marker = { id: string; name: string; lon: number; lat: number };
+type AMapSecurityWindow = Window & {
+  _AMapSecurityConfig?: {
+    securityJsCode?: string;
+  };
+};
 
 type AMapMap = {
   setCenter: (center: [number, number]) => void;
@@ -68,6 +73,7 @@ export function AMapPanel(props: {
   const [pinHost, setPinHost] = React.useState<HTMLElement | null>(null);
 
   const apiKey = import.meta.env.VITE_AMAP_KEY as string | undefined;
+  const securityJsCode = import.meta.env.VITE_AMAP_SECURITY_JS_CODE as string | undefined;
   const coordSystem = props.coordSystem ?? 'wgs84';
   const mapStyle = props.mapStyle ?? 'amap://styles/grey';
 
@@ -83,6 +89,12 @@ export function AMapPanel(props: {
     let destroyed = false;
     let onResize: (() => void) | null = null;
     (async () => {
+      if (securityJsCode?.trim()) {
+        (window as AMapSecurityWindow)._AMapSecurityConfig = {
+          securityJsCode: securityJsCode.trim(),
+        };
+      }
+
       const sdk = (await AMapLoader.load({
         key: apiKey,
         version: '2.0',
@@ -141,7 +153,7 @@ export function AMapPanel(props: {
       }
       setMapInstance(null);
     };
-  }, [apiKey, mapStyle, toAmapCoord]);
+  }, [apiKey, mapStyle, securityJsCode, toAmapCoord]);
 
   React.useEffect(() => {
     const map = mapInstance;

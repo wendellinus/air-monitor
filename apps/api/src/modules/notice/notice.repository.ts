@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import type { Prisma } from '@prisma/client';
 
 import { PrismaService } from '../../infra/prisma/prisma.service';
 
@@ -47,6 +48,12 @@ type NoticeRow = {
   severity: string | null;
   colorCode: string | null;
   source: string;
+};
+
+type AdminNoticeListFilters = {
+  status?: string;
+  effectiveFrom?: Date;
+  effectiveTo?: Date;
 };
 
 @Injectable()
@@ -126,8 +133,23 @@ export class NoticeRepository {
     return rows.map((row) => this.toEntity(row));
   }
 
-  async listAdmin(page: number, pageSize: number, status?: string): Promise<{ list: NoticeEntity[]; total: number }> {
-    const where = status ? { status } : {};
+  async listAdmin(
+    page: number,
+    pageSize: number,
+    filters: AdminNoticeListFilters = {},
+  ): Promise<{ list: NoticeEntity[]; total: number }> {
+    const conditions: Prisma.NoticeWhereInput[] = [];
+    if (filters.status) {
+      conditions.push({ status: filters.status });
+    }
+    // Overlap between notice interval [startTime, endTime] and filter interval [effectiveFrom, effectiveTo].
+    if (filters.effectiveFrom) {
+      conditions.push({ endTime: { gte: filters.effectiveFrom } });
+    }
+    if (filters.effectiveTo) {
+      conditions.push({ startTime: { lte: filters.effectiveTo } });
+    }
+    const where: Prisma.NoticeWhereInput = conditions.length > 0 ? { AND: conditions } : {};
     const [total, rows] = await this.prisma.$transaction([
       this.prisma.notice.count({ where }),
       this.prisma.notice.findMany({

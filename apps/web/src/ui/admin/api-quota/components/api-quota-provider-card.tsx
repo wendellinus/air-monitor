@@ -12,7 +12,6 @@ import type {
 } from '@air-monitor/shared';
 
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -24,7 +23,7 @@ import {
   type ChartType,
   type RangePreset,
   type TranslateFn,
-  buildBarOption,
+  buildAreaOption,
   buildLineOption,
   formatMetricValue,
   formatNumber,
@@ -64,8 +63,8 @@ function buildUsageDonutOption(input: {
   const usage = Math.max(0, Math.min(1, input.usageRate ?? 0));
   const used = Number((usage * 100).toFixed(2));
   const remaining = Math.max(0, Number((100 - used).toFixed(2)));
-  const usedLabel = textByLocale(input.locale, '已使用', 'Used');
-  const remainingLabel = textByLocale(input.locale, '剩余', 'Remaining');
+  const usedLabel = textByLocale(input.locale, '\u5df2\u4f7f\u7528', 'Used');
+  const remainingLabel = textByLocale(input.locale, '\u5269\u4f59', 'Remaining');
 
   return {
     tooltip: { trigger: 'item' },
@@ -97,23 +96,23 @@ function buildUsageDonutOption(input: {
 }
 
 function scopeLabel(locale: string, scope: ProviderMetricScope): string {
-  if (scope === 'today') return textByLocale(locale, '今日', 'Today');
-  if (scope === 'month') return textByLocale(locale, '本月', 'This month');
-  if (scope === 'rolling') return textByLocale(locale, '滚动周期', 'Rolling');
-  return textByLocale(locale, '未知', 'Unknown');
+  if (scope === 'today') return textByLocale(locale, '\u4eca\u65e5', 'Today');
+  if (scope === 'month') return textByLocale(locale, '\u672c\u6708', 'This month');
+  if (scope === 'rolling') return textByLocale(locale, '\u6eda\u52a8\u5468\u671f', 'Rolling');
+  return textByLocale(locale, '\u672a\u77e5', 'Unknown');
 }
 
 function sourceLabel(locale: string, source: string): string {
   if (source === 'normalized_fields') {
-    return textByLocale(locale, '平台汇总接口', 'Provider summary API');
+    return textByLocale(locale, '\u5e73\u53f0\u6c47\u603b\u63a5\u53e3', 'Provider summary API');
   }
   if (source === 'stats.success_errors_hours') {
-    return textByLocale(locale, '统计接口 success/errors', 'Stats success/errors API');
+    return textByLocale(locale, '\u7edf\u8ba1\u63a5\u53e3 success/errors', 'Stats success/errors API');
   }
   if (source === 'mock_formula') {
-    return textByLocale(locale, '本地模拟数据', 'Local mock data');
+    return textByLocale(locale, '\u672c\u5730\u6a21\u62df\u6570\u636e', 'Local mock data');
   }
-  return textByLocale(locale, '平台接口', 'Provider API');
+  return textByLocale(locale, '\u5e73\u53f0\u63a5\u53e3', 'Provider API');
 }
 
 function getMetricCandidates(
@@ -138,6 +137,7 @@ type ApiQuotaProviderCardProps = {
   overviewItem: ProviderOverviewItem | undefined;
   overviewLoading: boolean;
   refreshPending: boolean;
+  pollingIntervalMs?: number;
 };
 
 export function ApiQuotaProviderCard(props: ApiQuotaProviderCardProps): React.ReactNode {
@@ -170,7 +170,7 @@ export function ApiQuotaProviderCard(props: ApiQuotaProviderCardProps): React.Re
       });
       return response.data.data;
     },
-    refetchInterval: 60_000,
+    refetchInterval: props.pollingIntervalMs ?? 60_000,
     placeholderData: (previousData) => previousData,
   });
 
@@ -178,9 +178,9 @@ export function ApiQuotaProviderCard(props: ApiQuotaProviderCardProps): React.Re
     () => buildLineOption({ series: trends?.series, t: props.t, locale: props.locale }),
     [props.locale, props.t, trends?.series],
   );
-  const barOption = React.useMemo(
-    () => buildBarOption({ series: trends?.series, t: props.t }),
-    [props.t, trends?.series],
+  const areaOption = React.useMemo(
+    () => buildAreaOption({ series: trends?.series, t: props.t, locale: props.locale }),
+    [props.locale, props.t, trends?.series],
   );
   const donutOption = React.useMemo(
     () =>
@@ -190,7 +190,7 @@ export function ApiQuotaProviderCard(props: ApiQuotaProviderCardProps): React.Re
       }),
     [props.locale, props.overviewItem?.usageRate],
   );
-  const activeChartOption = chartType === 'line' ? lineOption : chartType === 'bar' ? barOption : donutOption;
+  const activeChartOption = chartType === 'line' ? lineOption : chartType === 'area' ? areaOption : donutOption;
   const metricName = props.t(`admin.apiQuota.metric.${metricKey}`);
 
   const metricRows = React.useMemo(() => {
@@ -237,11 +237,11 @@ export function ApiQuotaProviderCard(props: ApiQuotaProviderCardProps): React.Re
       (isQweather
         ? [
             { title: props.t('admin.apiQuota.chartType.line'), value: 'line' },
-            { title: props.t('admin.apiQuota.chartType.bar'), value: 'bar' },
+            { title: props.t('admin.apiQuota.chartType.area'), value: 'area' },
           ]
         : [
             { title: props.t('admin.apiQuota.chartType.line'), value: 'line' },
-            { title: props.t('admin.apiQuota.chartType.bar'), value: 'bar' },
+            { title: props.t('admin.apiQuota.chartType.area'), value: 'area' },
             { title: props.t('admin.apiQuota.chartType.donut'), value: 'donut' },
           ]
       ).map((item) => ({
@@ -254,36 +254,30 @@ export function ApiQuotaProviderCard(props: ApiQuotaProviderCardProps): React.Re
   const hasNoPoints = (trends?.series ?? []).every((item) => item.points.length === 0);
 
   return (
-    <Card className="border-border/70 shadow-sm">
-      <CardHeader className="pb-3">
+    <section className="h-full rounded-2xl bg-slate-50/80 p-4 md:p-5">
+      <div className="space-y-1 pb-4">
         <div className="flex items-center justify-between gap-2">
-          <CardTitle className="text-base">{props.t(`admin.apiQuota.provider.${props.provider}`)}</CardTitle>
-          <Badge
-            variant={props.overviewItem?.status === 'ok' ? 'success' : 'warning'}
-            className="shrink-0"
-          >
+          <h3 className="text-base font-semibold text-slate-900">{props.t(`admin.apiQuota.provider.${props.provider}`)}</h3>
+          <Badge variant={props.overviewItem?.status === 'ok' ? 'success' : 'warning'} className="shrink-0">
             {props.overviewItem?.status === 'ok'
               ? props.t('admin.apiQuota.status.ok')
               : props.t('admin.apiQuota.status.degraded')}
           </Badge>
         </div>
-        <CardDescription>
+        <p className="text-sm text-muted-foreground">
           {props.overviewItem?.updatedAt
             ? props.t('admin.apiQuota.updatedAt', {
                 time: new Date(props.overviewItem.updatedAt).toLocaleString(props.locale),
               })
             : props.t('admin.apiQuota.noData')}
-        </CardDescription>
-      </CardHeader>
+        </p>
+      </div>
 
-      <CardContent className="space-y-4 pt-0">
-        <div className="grid gap-2 md:grid-cols-[1fr_auto]">
+      <div className="space-y-4">
+        <div className="grid gap-2 rounded-xl bg-white p-3 shadow-sm md:grid-cols-[1fr_auto]">
           {!isQweather ? (
-            <Select
-              value={metricKey}
-              onValueChange={(value: ProviderMetricKey) => setMetricKey(value)}
-            >
-              <SelectTrigger className="h-9">
+            <Select value={metricKey} onValueChange={(value: ProviderMetricKey) => setMetricKey(value)}>
+              <SelectTrigger className="h-9 border-slate-200 bg-slate-50">
                 <SelectValue placeholder={props.t('admin.apiQuota.metricLabel')} />
               </SelectTrigger>
               <SelectContent>
@@ -297,7 +291,7 @@ export function ApiQuotaProviderCard(props: ApiQuotaProviderCardProps): React.Re
           ) : null}
 
           <Select value={rangePreset} onValueChange={(value: RangePreset) => setRangePreset(value)}>
-            <SelectTrigger className="h-9">
+            <SelectTrigger className="h-9 border-slate-200 bg-slate-50">
               <SelectValue placeholder={props.t('admin.apiQuota.rangeLabel')} />
             </SelectTrigger>
             <SelectContent>
@@ -313,17 +307,17 @@ export function ApiQuotaProviderCard(props: ApiQuotaProviderCardProps): React.Re
             <Skeleton className="h-24 w-full" />
           </div>
         ) : isQweather ? (
-          <div className="rounded-xl border border-border/60 bg-muted/20 p-4">
+          <div className="rounded-xl bg-white p-4 shadow-sm">
             <div className="text-sm text-muted-foreground">{props.t('admin.apiQuota.metric.requestCount')}</div>
-            <div className="mt-1 text-3xl font-semibold text-foreground">
+            <div className="mt-1 text-3xl font-semibold text-slate-900">
               {formatNumber(props.overviewItem?.requestCount ?? null)}
             </div>
             {props.overviewItem?.requestCountMeta ? (
               <div className="mt-2 text-xs text-muted-foreground">
-                {textByLocale(props.locale, '统计口径', 'Scope')}：
+                {textByLocale(props.locale, '\u7edf\u8ba1\u53e3\u5f84', 'Scope')}:{' '}
                 {scopeLabel(props.locale, props.overviewItem.requestCountMeta.scope)}
-                <span className="mx-1.5">·</span>
-                {textByLocale(props.locale, '数据来源', 'Source')}：
+                <span className="mx-1.5">|</span>
+                {textByLocale(props.locale, '\u6570\u636e\u6765\u6e90', 'Source')}:{' '}
                 {sourceLabel(props.locale, props.overviewItem.requestCountMeta.source)}
               </div>
             ) : null}
@@ -333,42 +327,43 @@ export function ApiQuotaProviderCard(props: ApiQuotaProviderCardProps): React.Re
             {metricRows.map((item) => (
               <div
                 key={item.key}
-                className="flex items-center justify-between rounded-md bg-muted/35 px-3 py-2 text-sm"
+                className="flex items-center justify-between rounded-lg bg-white px-3 py-2 text-sm shadow-sm"
               >
                 <span className="text-muted-foreground">{item.label}</span>
-                <span className="font-medium">{item.value}</span>
+                <span className="font-medium text-slate-900">{item.value}</span>
               </div>
             ))}
           </div>
         )}
 
-        <div className="rounded-lg border border-border/60 px-3 py-2">
+        <div className="rounded-xl bg-white px-3 py-2 shadow-sm">
           <Tabs
             tabs={chartTabs}
             defaultValue={chartType}
             onValueChange={(value) => setChartType(value as ChartType)}
-            containerClassName="gap-2"
-            tabClassName="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-600"
-            activeTabClassName="bg-slate-900"
+            motionPreset="admin"
+            containerClassName="gap-2 rounded-lg bg-slate-100 p-1"
+            tabClassName="min-w-[74px] rounded-md border border-transparent bg-transparent px-3 py-1.5 text-sm font-medium text-slate-600"
+            activeTabClassName="border border-slate-200 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.1)]"
             contentClassName="hidden"
           />
         </div>
 
-        <div className="relative overflow-hidden rounded-lg border border-border/60">
+        <div className="relative overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200/70">
           {props.refreshPending ? (
             <div className="pointer-events-none absolute right-3 top-3 z-10 rounded-full bg-background/90 p-1 shadow-sm">
               <Spinner className="h-4 w-4" />
             </div>
           ) : null}
 
-          <div className="border-b border-border/60 px-4 py-3 text-sm font-medium">
+          <div className="px-4 pt-3 text-sm font-medium text-slate-700">
             {props.t('admin.apiQuota.chartTitle', { metric: metricName })}
           </div>
-          <div className="p-3">
+          <div className="px-3 pb-3 pt-2">
             {!trends && trendsLoading && chartType !== 'donut' ? (
-              <Skeleton className="h-[280px] w-full" />
+              <Skeleton className="h-[300px] w-full rounded-lg" />
             ) : (
-              <EChartsViewport option={activeChartOption} className="h-[280px] w-full" />
+              <EChartsViewport option={activeChartOption} className="h-[300px] w-full" />
             )}
           </div>
         </div>
@@ -382,7 +377,7 @@ export function ApiQuotaProviderCard(props: ApiQuotaProviderCardProps): React.Re
             <EmptyDescription>{props.t('admin.apiQuota.emptyDesc')}</EmptyDescription>
           </Empty>
         ) : null}
-      </CardContent>
-    </Card>
+      </div>
+    </section>
   );
 }

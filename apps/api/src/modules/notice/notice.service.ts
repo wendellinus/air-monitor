@@ -18,6 +18,12 @@ function parseIsoOrNow(s: string | undefined): Date {
   return d;
 }
 
+type AdminNoticeListFilters = {
+  status?: string;
+  effectiveFrom?: Date;
+  effectiveTo?: Date;
+};
+
 @Injectable()
 export class NoticeService {
   private readonly logger = new Logger(NoticeService.name);
@@ -36,7 +42,7 @@ export class NoticeService {
     try {
       data = await this.alerts.fetchWeatherAlert(lat, lon);
     } catch (e) {
-      this.logger.warn('获取天气预警失败', e as Error);
+      this.logger.warn('sync weather alerts failed', e as Error);
       throw new AppError(ErrorCodes.ThirdParty, (e as Error).message);
     }
 
@@ -75,14 +81,18 @@ export class NoticeService {
     return created;
   }
 
-  async listAdmin(page: number, pageSize: number, status?: string): Promise<{ list: NoticeEntity[]; total: number; page: number; pageSize: number }> {
-    const { list, total } = await this.repo.listAdmin(page, pageSize, status);
+  async listAdmin(
+    page: number,
+    pageSize: number,
+    filters: AdminNoticeListFilters = {},
+  ): Promise<{ list: NoticeEntity[]; total: number; page: number; pageSize: number }> {
+    const { list, total } = await this.repo.listAdmin(page, pageSize, filters);
     return { list, total, page, pageSize };
   }
 
   async createManualNotice(dto: AdminCreateNoticeDto): Promise<{ id: number }> {
     if (dto.startTime.getTime() >= dto.endTime.getTime()) {
-      throw new AppError(ErrorCodes.ParamError, '开始时间必须早于结束时间');
+      throw new AppError(ErrorCodes.ParamError, '\u5f00\u59cb\u65f6\u95f4\u5fc5\u987b\u65e9\u4e8e\u7ed3\u675f\u65f6\u95f4');
     }
 
     const entity: Omit<NoticeEntity, 'id'> = {
@@ -90,7 +100,8 @@ export class NoticeService {
       content: dto.content,
       startTime: dto.startTime,
       endTime: dto.endTime,
-      status: NoticeStatus.Draft,
+      // Manual notices are time-driven: pending/active/expired is derived from start/end time.
+      status: NoticeStatus.Published,
       level: dto.level,
       source: NoticeSource.Manual,
     };
@@ -101,15 +112,15 @@ export class NoticeService {
 
   async updateManualNotice(id: number, dto: AdminUpdateNoticeDto): Promise<void> {
     const existing = await this.repo.findById(id);
-    if (!existing) throw new AppError(ErrorCodes.ParamError, '公告不存在');
+    if (!existing) throw new AppError(ErrorCodes.ParamError, '\u516c\u544a\u4e0d\u5b58\u5728');
     if (existing.source !== NoticeSource.Manual) {
-      throw new AppError(ErrorCodes.ParamError, '只能编辑手动公告');
+      throw new AppError(ErrorCodes.ParamError, '\u53ea\u5141\u8bb8\u66f4\u65b0\u624b\u52a8\u516c\u544a');
     }
 
     const startTime = dto.startTime ?? existing.startTime;
     const endTime = dto.endTime ?? existing.endTime;
     if (startTime.getTime() >= endTime.getTime()) {
-      throw new AppError(ErrorCodes.ParamError, '开始时间必须早于结束时间');
+      throw new AppError(ErrorCodes.ParamError, '\u5f00\u59cb\u65f6\u95f4\u5fc5\u987b\u65e9\u4e8e\u7ed3\u675f\u65f6\u95f4');
     }
 
     await this.repo.updateById(id, {
@@ -123,18 +134,27 @@ export class NoticeService {
 
   async publishManualNotice(id: number): Promise<void> {
     const existing = await this.repo.findById(id);
-    if (!existing) throw new AppError(ErrorCodes.ParamError, '公告不存在');
+    if (!existing) throw new AppError(ErrorCodes.ParamError, '\u516c\u544a\u4e0d\u5b58\u5728');
     if (existing.source !== NoticeSource.Manual) {
-      throw new AppError(ErrorCodes.ParamError, '只能发布手动公告');
+      throw new AppError(ErrorCodes.ParamError, '\u53ea\u5141\u8bb8\u53d1\u5e03\u624b\u52a8\u516c\u544a');
     }
     await this.repo.setStatus(id, NoticeStatus.Published);
   }
 
   async unpublishManualNotice(id: number): Promise<void> {
     const existing = await this.repo.findById(id);
-    if (!existing) throw new AppError(ErrorCodes.ParamError, '公告不存在');
+    if (!existing) throw new AppError(ErrorCodes.ParamError, '\u516c\u544a\u4e0d\u5b58\u5728');
     if (existing.source !== NoticeSource.Manual) {
-      throw new AppError(ErrorCodes.ParamError, '只能下线手动公告');
+      throw new AppError(ErrorCodes.ParamError, '\u53ea\u5141\u8bb8\u4e0b\u7ebf\u624b\u52a8\u516c\u544a');
+    }
+    await this.repo.setStatus(id, NoticeStatus.Revoked);
+  }
+
+  async revokeManualNotice(id: number): Promise<void> {
+    const existing = await this.repo.findById(id);
+    if (!existing) throw new AppError(ErrorCodes.ParamError, '\u516c\u544a\u4e0d\u5b58\u5728');
+    if (existing.source !== NoticeSource.Manual) {
+      throw new AppError(ErrorCodes.ParamError, '\u53ea\u5141\u8bb8\u4f5c\u5e9f\u624b\u52a8\u516c\u544a');
     }
     await this.repo.setStatus(id, NoticeStatus.Revoked);
   }

@@ -8,12 +8,9 @@ import type {
 } from '@air-monitor/shared';
 
 import { api } from '@/shared/api';
+import { useSystemPollingInterval } from '@/shared/hooks/use-system-polling-interval';
 import type { ApiResponse } from '@/shared/types';
 import {
-  REFRESH_AIR_MS,
-  REFRESH_ALERTS_MS,
-  REFRESH_NOTICES_MS,
-  REFRESH_TOP_CITIES_MS,
   humanizeError,
   toastErrorDeduped,
 } from '@/ui/screen/lib/screen-utils';
@@ -33,6 +30,7 @@ type ScreenLiveDataOptions = {
 
 export function useScreenLiveData(options: ScreenLiveDataOptions): ScreenLiveDataState {
   const { selected, setSelected } = options;
+  const { pollingIntervalMs } = useSystemPollingInterval();
   const [cities, setCities] = React.useState<CityItem[]>([]);
   const [notices, setNotices] = React.useState<NoticeItem[]>([]);
   const [air, setAir] = React.useState<AirNowItem | null>(null);
@@ -81,13 +79,13 @@ export function useScreenLiveData(options: ScreenLiveDataOptions): ScreenLiveDat
     };
 
     void load();
-    timer = window.setInterval(() => void load(), REFRESH_ALERTS_MS);
+    timer = window.setInterval(() => void load(), pollingIntervalMs);
     return () => {
       mounted = false;
       if (timer !== null) window.clearInterval(timer);
       inFlight?.abort();
     };
-  }, [selected?.cityId]);
+  }, [pollingIntervalMs, selected?.cityId]);
 
   React.useEffect(() => {
     let mounted = true;
@@ -160,15 +158,15 @@ export function useScreenLiveData(options: ScreenLiveDataOptions): ScreenLiveDat
       }
     };
 
-    const timer1 = window.setInterval(() => void refreshTopCities(), REFRESH_TOP_CITIES_MS);
-    const timer2 = window.setInterval(() => void refreshNotices(), REFRESH_NOTICES_MS);
+    const timer1 = window.setInterval(() => void refreshTopCities(), pollingIntervalMs);
+    const timer2 = window.setInterval(() => void refreshNotices(), pollingIntervalMs);
 
     return () => {
       mounted = false;
       window.clearInterval(timer1);
       window.clearInterval(timer2);
     };
-  }, []);
+  }, [pollingIntervalMs]);
 
   React.useEffect(() => {
     if (!selected) return;
@@ -212,13 +210,13 @@ export function useScreenLiveData(options: ScreenLiveDataOptions): ScreenLiveDat
     };
 
     void load();
-    timer = window.setInterval(() => void load(), REFRESH_AIR_MS);
+    timer = window.setInterval(() => void load(), pollingIntervalMs);
     return () => {
       mounted = false;
       if (timer !== null) window.clearInterval(timer);
       inFlight?.abort();
     };
-  }, [selected]);
+  }, [pollingIntervalMs, selected]);
 
   return {
     cities,

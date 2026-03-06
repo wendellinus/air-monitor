@@ -13,8 +13,6 @@ type FavoritesPaginationProps = {
 };
 
 export function FavoritesPagination(props: FavoritesPaginationProps): React.ReactNode {
-  if (props.totalPages <= 1) return null;
-
   return (
     <div className="flex items-center justify-end gap-2 border-t border-border/70 pt-3">
       <span className="text-sm text-muted-foreground">

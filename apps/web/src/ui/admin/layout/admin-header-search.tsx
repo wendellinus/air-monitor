@@ -63,15 +63,7 @@ const SEARCH_ITEMS: SearchItem[] = [
     permissionKey: 'system.view',
     getTitle: (locale) => (locale.startsWith('zh') ? '系统设置' : 'System'),
     getDesc: (locale) =>
-      locale.startsWith('zh') ? '配置轮询与服务运行参数' : 'Configure polling and runtime settings',
-  },
-  {
-    id: 'api-quota',
-    to: '/admin/api-quota',
-    permissionKey: 'apiQuota.view',
-    getTitle: (locale) => (locale.startsWith('zh') ? 'API 额度中心' : 'API Quota'),
-    getDesc: (locale) =>
-      locale.startsWith('zh') ? '查看和风与高德额度及请求趋势' : 'Quota and usage trends by provider',
+      locale.startsWith('zh') ? '配置轮询并查看和风/高德配额与请求趋势' : 'Configure polling and check provider quota trends',
   },
   {
     id: 'permissions',

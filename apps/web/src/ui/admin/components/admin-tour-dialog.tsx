@@ -50,8 +50,8 @@ export function AdminTourDialog(props: { locale: string }): React.ReactNode {
       },
       {
         title: textByLocale(props.locale, '数据与配额', 'Data & Quota'),
-        desc: textByLocale(props.locale, '在 API 配额中心查看请求量、余额与异常平台。', 'Monitor requests, balance, and provider health in API quota center.'),
-        path: '/admin/api-quota',
+        desc: textByLocale(props.locale, '在系统设置中查看和风/高德请求量与异常平台。', 'Check provider requests and health in System Settings.'),
+        path: '/admin/system?tab=qweather',
       },
     ],
     [props.locale],

@@ -31,7 +31,7 @@ export function DashboardHeader(props: DashboardHeaderProps): React.ReactNode {
           <RefreshIconButton
             size="sm"
             onClick={props.onRefresh}
-            loading={props.isRefreshing}
+            loading={props.isRefreshing || props.refreshLocked}
             disabled={
               props.layoutLoading ||
               props.isRefreshing ||

@@ -23,48 +23,69 @@ export function AdminNoticesPage(): React.ReactNode {
     isRefreshing,
     createOpen,
     submitting,
-    publishingId,
+    effectiveFrom,
+    effectiveTo,
     form,
     setPage,
     setCreateOpen,
     setForm,
+    setEffectiveFrom,
+    setEffectiveTo,
+    clearEffectiveFilters,
     refresh,
     openCreateDialog,
-    togglePublish,
     createNotice,
+    revokeNotice,
+    publishingId,
   } = useAdminNotices({ t });
   const refreshAction = useRateLimitedAction(() => refresh(), { cooldownMs: 800 });
 
   return (
-    <PageShell title={t('admin.notices.title')} description={t('admin.notices.total', { total })}>
-      <div className="space-y-3">
+    <PageShell
+      title={t('admin.notices.title')}
+      description={t('admin.notices.total', { total })}
+      fitHeight
+      bodyClassName="min-h-0"
+    >
+      <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden">
         <NoticesToolbar
           t={t}
+          effectiveFrom={effectiveFrom}
+          effectiveTo={effectiveTo}
+          hasActiveFilters={Boolean(effectiveFrom || effectiveTo)}
           isRefreshing={isRefreshing}
           isInitialLoading={isInitialLoading}
           refreshLocked={refreshAction.locked}
+          onEffectiveFromChange={setEffectiveFrom}
+          onEffectiveToChange={setEffectiveTo}
+          onClearFilters={clearEffectiveFilters}
           onRefresh={refreshAction.run}
           onCreate={openCreateDialog}
         />
 
-        <NoticesTableCard
-          t={t}
-          locale={locale}
-          notices={notices}
-          isInitialLoading={isInitialLoading}
-          publishingId={publishingId}
-          pageSize={pageSize}
-          onTogglePublish={(notice) => void togglePublish(notice)}
-        />
+        <div className="min-h-0 flex-1 overflow-hidden">
+          <NoticesTableCard
+            t={t}
+            locale={locale}
+            notices={notices}
+            isInitialLoading={isInitialLoading}
+            pageSize={pageSize}
+            processingId={publishingId}
+            onRevoke={(notice) => void revokeNotice(notice)}
+            className="h-full"
+          />
+        </div>
 
-        <NoticesPagination
-          t={t}
-          page={page}
-          totalPages={totalPages}
-          isRefreshing={isRefreshing}
-          onPrevPage={() => setPage((current) => current - 1)}
-          onNextPage={() => setPage((current) => current + 1)}
-        />
+        <div className="shrink-0">
+          <NoticesPagination
+            t={t}
+            page={page}
+            totalPages={totalPages}
+            isRefreshing={isRefreshing}
+            onPrevPage={() => setPage((current) => current - 1)}
+            onNextPage={() => setPage((current) => current + 1)}
+          />
+        </div>
       </div>
 
       <CreateNoticeDialog

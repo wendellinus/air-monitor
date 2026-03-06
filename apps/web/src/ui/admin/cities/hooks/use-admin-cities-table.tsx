@@ -47,11 +47,11 @@ export function useAdminCitiesTable(t: TranslateFn): UseAdminCitiesTableResult {
   const rows = React.useMemo<CityRow[]>(
     () =>
       (cities ?? []).map((city) => ({
-        country: city.country,
-        city: city.name,
-        region: formatRegion(city),
-        coordinates: `${city.lat}, ${city.lon}`,
-        cityId: city.cityId,
+        country: city.country || '--',
+        city: city.name || city.cityId || '--',
+        region: formatRegion(city) || '--',
+        coordinates: city.lat && city.lon ? `${city.lat}, ${city.lon}` : '--',
+        cityId: city.cityId || '--',
       })),
     [cities],
   );
@@ -61,6 +61,7 @@ export function useAdminCitiesTable(t: TranslateFn): UseAdminCitiesTableResult {
       {
         accessorKey: 'country',
         header: () => <div className="px-2 text-sm font-medium text-foreground">{t('admin.cities.table.country')}</div>,
+        cell: ({ row }) => <span className="block max-w-[140px] truncate">{row.original.country}</span>,
       },
       {
         accessorKey: 'city',
@@ -70,6 +71,7 @@ export function useAdminCitiesTable(t: TranslateFn): UseAdminCitiesTableResult {
       {
         accessorKey: 'region',
         header: () => <div className="px-2 text-sm font-medium text-foreground">{t('admin.cities.table.region')}</div>,
+        cell: ({ row }) => <span className="block max-w-[180px] truncate">{row.original.region}</span>,
       },
       {
         accessorKey: 'coordinates',

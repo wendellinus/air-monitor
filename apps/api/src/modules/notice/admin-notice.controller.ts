@@ -43,7 +43,11 @@ export class AdminNoticeController {
   @Permissions('notices.view')
   @Get()
   async list(@Query() q: AdminNoticeListQueryDto): Promise<NoticeAdminListData> {
-    const { list, total, page, pageSize } = await this.notices.listAdmin(q.page, q.pageSize, q.status);
+    const { list, total, page, pageSize } = await this.notices.listAdmin(q.page, q.pageSize, {
+      status: q.status,
+      effectiveFrom: q.effectiveFrom,
+      effectiveTo: q.effectiveTo,
+    });
     return { list: list.map((n) => this.toItem(n)), total, page, pageSize };
   }
 
@@ -71,6 +75,13 @@ export class AdminNoticeController {
   @Post(':id/unpublish')
   async unpublish(@Param('id', ParseIntPipe) id: number): Promise<OkResponseData> {
     await this.notices.unpublishManualNotice(id);
+    return { ok: true };
+  }
+
+  @Permissions('notices.publish')
+  @Post(':id/revoke')
+  async revoke(@Param('id', ParseIntPipe) id: number): Promise<OkResponseData> {
+    await this.notices.revokeManualNotice(id);
     return { ok: true };
   }
 }
