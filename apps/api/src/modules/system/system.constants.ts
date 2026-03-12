@@ -1,0 +1,3 @@
+export const DEFAULT_POLLING_INTERVAL_MS = 60_000;
+export const MIN_POLLING_INTERVAL_MS = 5_000;
+export const SYSTEM_RUNTIME_CONFIG_ID = 1;

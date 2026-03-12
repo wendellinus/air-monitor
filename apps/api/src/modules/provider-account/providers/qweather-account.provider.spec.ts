@@ -52,4 +52,24 @@ describe('QweatherAccountProvider', () => {
 
     await expect(provider.fetchSnapshot()).rejects.toThrow('no usable metrics');
   });
+
+  it('prefers stats hourly aggregation when normalized request count conflicts', async () => {
+    const service = createProviderServiceMock();
+    service.getSummary.mockResolvedValue({ requestCount: 2, balance: 0 });
+    service.getStats.mockResolvedValue({
+      success: [{ hours: [10, 5] }],
+      errors: [{ hours: [3] }],
+    });
+
+    const provider = new QweatherAccountProvider(service as unknown as ProviderService);
+    const snapshot = await provider.fetchSnapshot();
+
+    expect(snapshot.requestCount).toBe(18);
+    expect(snapshot.requestCountMeta).toEqual(
+      expect.objectContaining({
+        scope: 'today',
+        source: 'stats.success_errors_hours',
+      }),
+    );
+  });
 });

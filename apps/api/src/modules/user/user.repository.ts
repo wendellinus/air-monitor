@@ -149,6 +149,27 @@ export class UserRepository {
     });
   }
 
+  async findAdminDetailById(
+    id: number,
+  ): Promise<{
+    id: number;
+    username: string;
+    isActive: boolean;
+    role: UserRole;
+    createdAt: Date;
+  } | null> {
+    return this.prisma.user.findFirst({
+      where: { id, deletedAt: null },
+      select: {
+        id: true,
+        username: true,
+        isActive: true,
+        role: true,
+        createdAt: true,
+      },
+    });
+  }
+
   async findProfileById(
     id: number,
   ): Promise<{
@@ -221,6 +242,26 @@ export class UserRepository {
     });
   }
 
+  async updateAdminDetail(
+    id: number,
+    payload: {
+      username: string;
+      isActive: boolean;
+      tokenInvalidBefore?: Date;
+      incrementTokenVersion?: boolean;
+    },
+  ): Promise<void> {
+    await this.prisma.user.update({
+      where: { id },
+      data: {
+        username: payload.username,
+        isActive: payload.isActive,
+        tokenInvalidBefore: payload.tokenInvalidBefore,
+        ...(payload.incrementTokenVersion ? { tokenVersion: { increment: 1 } } : {}),
+      },
+    });
+  }
+
   async updateLocale(id: number, locale: string): Promise<void> {
     await this.prisma.$executeRaw`
       UPDATE "User"
@@ -233,6 +274,21 @@ export class UserRepository {
     await this.prisma.refreshToken.updateMany({
       where: { userId, revokedAt: null },
       data: { revokedAt: now },
+    });
+  }
+
+  async softDeleteUser(id: number, archivedUsername: string, now: Date): Promise<void> {
+    await this.prisma.user.update({
+      where: { id },
+      data: {
+        username: archivedUsername,
+        email: null,
+        phone: null,
+        isActive: false,
+        deletedAt: now,
+        tokenInvalidBefore: now,
+        tokenVersion: { increment: 1 },
+      },
     });
   }
 

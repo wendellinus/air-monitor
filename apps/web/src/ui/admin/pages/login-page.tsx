@@ -7,10 +7,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { api } from '@/shared/api';
 import { setTokens } from '@/shared/auth';
+import { SILENT_UI_ERROR_REQUEST_CONFIG } from '@/shared/http/api-request-config';
 import { useI18n } from '@/shared/i18n';
 import type { Locale } from '@/shared/i18n';
 import type { ApiResponse, Tokens } from '@/shared/types';
-import { AdminAuthShell } from '@/ui/admin/auth/components';
+import { AdminAuthFeedback, AdminAuthShell } from '@/ui/admin/auth/components';
 import { textByLocale } from '@/ui/admin/auth/lib';
 import { useAdminSessionStore } from '@/ui/admin/stores/admin-session-store';
 
@@ -37,7 +38,11 @@ export function AdminLoginPage(): React.ReactNode {
 
     try {
       const payload: LoginRequest = { username: username.trim(), password };
-      const response = await api.post<ApiResponse<LoginResponseData>>('/login', payload);
+      const response = await api.post<ApiResponse<LoginResponseData>>(
+        '/login',
+        payload,
+        SILENT_UI_ERROR_REQUEST_CONFIG,
+      );
       const data = response.data.data;
       const tokens: Tokens = { accessToken: data.token, refreshToken: data.refreshToken };
       setTokens(tokens);
@@ -57,7 +62,7 @@ export function AdminLoginPage(): React.ReactNode {
       const resolvedMe =
         meResult.status === 'fulfilled' ? meResult.value.data.data : fallbackMe;
       const resolvedPermissionKeys =
-        permissionResult.status === 'fulfilled' ? permissionResult.value.data.data.permissions : null;
+        permissionResult.status === 'fulfilled' ? permissionResult.value.data.data.permissions : [];
       setSession({ me: resolvedMe, permissionKeys: resolvedPermissionKeys });
       setLocale(normalizeLocale(resolvedMe.locale));
       navigate('/admin', { replace: true });
@@ -102,7 +107,10 @@ export function AdminLoginPage(): React.ReactNode {
             placeholder={t('auth.login.usernamePlaceholder')}
             required
             value={username}
-            onChange={(event) => setUsername(event.target.value)}
+            onChange={(event) => {
+              setUsername(event.target.value);
+              if (error) setError(null);
+            }}
           />
         </div>
 
@@ -118,15 +126,16 @@ export function AdminLoginPage(): React.ReactNode {
             required
             type="password"
             value={password}
-            onChange={(event) => setPassword(event.target.value)}
+            onChange={(event) => {
+              setPassword(event.target.value);
+              if (error) setError(null);
+            }}
           />
         </div>
 
-        {error ? (
-          <p aria-live="polite" className="text-destructive text-sm">
-            {error}
-          </p>
-        ) : null}
+        <div className="min-h-12">
+          <AdminAuthFeedback tone="error" message={error} />
+        </div>
 
         <Button
           className="h-12 w-full rounded-xl text-sm font-semibold shadow-[0_14px_30px_-18px_rgba(37,99,235,0.68)]"

@@ -63,6 +63,15 @@ export class PermissionRepository {
     return rows.map((item) => item.permissionKey);
   }
 
+  async listUserDeniedPermissionKeys(userId: number): Promise<string[]> {
+    const rows = await this.prisma.userDeniedPermission.findMany({
+      where: { userId },
+      orderBy: { permissionKey: 'asc' },
+      select: { permissionKey: true },
+    });
+    return rows.map((item) => item.permissionKey);
+  }
+
   async countRolePermission(role: UserRole): Promise<number> {
     const rows = await this.prisma.$queryRaw<Array<{ total: bigint }>>`
       SELECT COUNT(*)::bigint AS total
@@ -86,6 +95,26 @@ export class PermissionRepository {
           ON CONFLICT ("role", "permissionKey") DO NOTHING
         `;
       }
+    });
+  }
+
+  async replaceUserDeniedPermissions(userId: number, permissionKeys: string[]): Promise<void> {
+    await this.prisma.$transaction(async (tx) => {
+      await tx.userDeniedPermission.deleteMany({
+        where: { userId },
+      });
+
+      if (permissionKeys.length === 0) {
+        return;
+      }
+
+      await tx.userDeniedPermission.createMany({
+        data: permissionKeys.map((permissionKey) => ({
+          userId,
+          permissionKey,
+        })),
+        skipDuplicates: true,
+      });
     });
   }
 }

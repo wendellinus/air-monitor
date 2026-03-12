@@ -25,10 +25,12 @@ export function AdminNoticesPage(): React.ReactNode {
     submitting,
     effectiveFrom,
     effectiveTo,
+    statusFilter,
     form,
     setPage,
     setCreateOpen,
     setForm,
+    setStatusFilter,
     setEffectiveFrom,
     setEffectiveTo,
     clearEffectiveFilters,
@@ -50,12 +52,14 @@ export function AdminNoticesPage(): React.ReactNode {
       <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden">
         <NoticesToolbar
           t={t}
+          statusFilter={statusFilter}
           effectiveFrom={effectiveFrom}
           effectiveTo={effectiveTo}
-          hasActiveFilters={Boolean(effectiveFrom || effectiveTo)}
+          hasActiveFilters={Boolean(statusFilter !== 'all' || effectiveFrom || effectiveTo)}
           isRefreshing={isRefreshing}
           isInitialLoading={isInitialLoading}
           refreshLocked={refreshAction.locked}
+          onStatusChange={setStatusFilter}
           onEffectiveFromChange={setEffectiveFrom}
           onEffectiveToChange={setEffectiveTo}
           onClearFilters={clearEffectiveFilters}

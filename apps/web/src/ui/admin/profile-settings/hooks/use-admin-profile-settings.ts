@@ -1,6 +1,5 @@
 ﻿import React from 'react';
 import type { MeProfileData, UpdateMeProfileRequest } from '@air-monitor/shared';
-import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 
 import { SettingsProfile1, type ProfileFormData } from '@/components/settings-profile1';
@@ -8,7 +7,6 @@ import { api } from '@/shared/api';
 import type { ApiResponse } from '@/shared/types';
 import {
   ADMIN_TOUR_START_EVENT,
-  ADMIN_TOUR_STORAGE_KEY,
 } from '@/ui/admin/components/admin-driver-tour-button';
 import { textByLocale } from '@/ui/admin/profile-settings/lib/locale';
 import { useOnboardingStore } from '@/ui/admin/stores/onboarding-store';
@@ -30,7 +28,6 @@ type UseAdminProfileSettingsResult = {
 };
 
 export function useAdminProfileSettings(locale: string): UseAdminProfileSettingsResult {
-  const navigate = useNavigate();
   const resetTour = useOnboardingStore((state) => state.resetTour);
   const me = useAdminSessionStore((state) => state.me);
   const setMe = useAdminSessionStore((state) => state.setMe);
@@ -127,7 +124,6 @@ export function useAdminProfileSettings(locale: string): UseAdminProfileSettings
 
   const handleResetTour = React.useCallback(() => {
     resetTour();
-    window.localStorage.removeItem(ADMIN_TOUR_STORAGE_KEY);
     toast.success(
       textByLocale(
         locale,
@@ -139,12 +135,8 @@ export function useAdminProfileSettings(locale: string): UseAdminProfileSettings
 
   const handleResetAndStart = React.useCallback(() => {
     resetTour();
-    window.localStorage.removeItem(ADMIN_TOUR_STORAGE_KEY);
-    navigate('/admin');
-    window.setTimeout(() => {
-      window.dispatchEvent(new Event(ADMIN_TOUR_START_EVENT));
-    }, 360);
-  }, [navigate, resetTour]);
+    window.dispatchEvent(new Event(ADMIN_TOUR_START_EVENT));
+  }, [resetTour]);
 
   return {
     loading,

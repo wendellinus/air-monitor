@@ -4,10 +4,10 @@ import { Activity } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import type {
   ProviderMetricKey,
-  ProviderMetricScope,
   ProviderOverviewItem,
   ProviderTrendBucket,
   ProviderTrendData,
+  ProviderTrendSeries,
   ProviderType,
 } from '@air-monitor/shared';
 
@@ -32,6 +32,77 @@ import {
 
 function textByLocale(locale: string, zh: string, en: string): string {
   return locale.startsWith('zh') ? zh : en;
+}
+
+function describeRequestCountScope(
+  locale: string,
+  meta: ProviderOverviewItem['requestCountMeta'] | null | undefined,
+): string | null {
+  if (!meta) return null;
+
+  const scopeLabel =
+    meta.scope === 'today'
+      ? textByLocale(locale, '今日累计请求数', 'Today request total')
+      : meta.scope === 'month'
+        ? textByLocale(locale, '当月累计请求数', 'Current month request total')
+        : meta.scope === 'rolling'
+          ? textByLocale(locale, '滚动窗口请求数', 'Rolling-window request total')
+          : textByLocale(locale, '请求统计', 'Request metric');
+
+  const sourceLabel =
+    meta.source === 'stats.success_errors_hours'
+      ? textByLocale(locale, '按逐时成功/失败请求汇总', 'Aggregated from hourly success/error stats')
+      : meta.source === 'normalized_fields'
+        ? textByLocale(locale, '按平台返回字段识别', 'Derived from provider summary fields')
+        : meta.note ?? null;
+
+  return sourceLabel ? `${scopeLabel} · ${sourceLabel}` : scopeLabel;
+}
+
+function getQweatherRequestCountLabel(locale: string, meta: ProviderOverviewItem['requestCountMeta'] | null | undefined): string {
+  if (meta?.scope === 'month') return textByLocale(locale, '当月累计请求数', 'Current month request total');
+  if (meta?.scope === 'rolling') return textByLocale(locale, '滚动窗口请求数', 'Rolling-window request total');
+  if (meta?.scope === 'today') return textByLocale(locale, '今日累计请求数', 'Today request total');
+  return textByLocale(locale, '请求次数', 'Request count');
+}
+
+function getRangeRequestCountLabel(input: {
+  locale: string;
+  t: TranslateFn;
+  rangePreset: RangePreset;
+  meta: ProviderOverviewItem['requestCountMeta'] | null | undefined;
+}): string {
+  const rangeLabel = input.t(`admin.apiQuota.range.${input.rangePreset}`);
+  if (input.meta?.scope === 'rolling' || input.meta?.scope === 'month') {
+    return textByLocale(input.locale, `${rangeLabel}请求增量`, `${rangeLabel} request increase`);
+  }
+  return textByLocale(input.locale, `${rangeLabel}累计请求数`, `${rangeLabel} request total`);
+}
+
+function getRangeAwareRequestCountValue(input: {
+  fallback: number | null;
+  meta: ProviderOverviewItem['requestCountMeta'] | null | undefined;
+  series: ProviderTrendSeries | undefined;
+}): number | null {
+  const points = [...(input.series?.points ?? [])].sort(
+    (a, b) => new Date(a.time).getTime() - new Date(b.time).getTime(),
+  );
+  if (points.length === 0) return input.fallback;
+
+  if (input.meta?.scope === 'rolling' || input.meta?.scope === 'month') {
+    const first = points[0]?.value ?? null;
+    const last = points.at(-1)?.value ?? null;
+    if (first !== null && last !== null) {
+      const delta = last - first;
+      if (Number.isFinite(delta) && delta >= 0) {
+        return delta;
+      }
+    }
+    return last;
+  }
+
+  const total = points.reduce((sum, point) => sum + point.value, 0);
+  return Number.isFinite(total) ? total : input.fallback;
 }
 
 function EChartsViewport(props: { option: echarts.EChartsOption; className?: string }): React.ReactNode {
@@ -63,8 +134,8 @@ function buildUsageDonutOption(input: {
   const usage = Math.max(0, Math.min(1, input.usageRate ?? 0));
   const used = Number((usage * 100).toFixed(2));
   const remaining = Math.max(0, Number((100 - used).toFixed(2)));
-  const usedLabel = textByLocale(input.locale, '\u5df2\u4f7f\u7528', 'Used');
-  const remainingLabel = textByLocale(input.locale, '\u5269\u4f59', 'Remaining');
+  const usedLabel = textByLocale(input.locale, '已使用', 'Used');
+  const remainingLabel = textByLocale(input.locale, '剩余', 'Remaining');
 
   return {
     tooltip: { trigger: 'item' },
@@ -93,26 +164,6 @@ function buildUsageDonutOption(input: {
       },
     ],
   };
-}
-
-function scopeLabel(locale: string, scope: ProviderMetricScope): string {
-  if (scope === 'today') return textByLocale(locale, '\u4eca\u65e5', 'Today');
-  if (scope === 'month') return textByLocale(locale, '\u672c\u6708', 'This month');
-  if (scope === 'rolling') return textByLocale(locale, '\u6eda\u52a8\u5468\u671f', 'Rolling');
-  return textByLocale(locale, '\u672a\u77e5', 'Unknown');
-}
-
-function sourceLabel(locale: string, source: string): string {
-  if (source === 'normalized_fields') {
-    return textByLocale(locale, '\u5e73\u53f0\u6c47\u603b\u63a5\u53e3', 'Provider summary API');
-  }
-  if (source === 'stats.success_errors_hours') {
-    return textByLocale(locale, '\u7edf\u8ba1\u63a5\u53e3 success/errors', 'Stats success/errors API');
-  }
-  if (source === 'mock_formula') {
-    return textByLocale(locale, '\u672c\u5730\u6a21\u62df\u6570\u636e', 'Local mock data');
-  }
-  return textByLocale(locale, '\u5e73\u53f0\u63a5\u53e3', 'Provider API');
 }
 
 function getMetricCandidates(
@@ -150,6 +201,7 @@ export function ApiQuotaProviderCard(props: ApiQuotaProviderCardProps): React.Re
   const [rangePreset, setRangePreset] = React.useState<RangePreset>('7d');
   const [chartType, setChartType] = React.useState<ChartType>('line');
   const bucket: ProviderTrendBucket = 'day';
+  const effectiveRangePreset: RangePreset = isQweather ? '7d' : rangePreset;
 
   React.useEffect(() => {
     if (metricCandidates.includes(metricKey)) return;
@@ -157,19 +209,38 @@ export function ApiQuotaProviderCard(props: ApiQuotaProviderCardProps): React.Re
   }, [metricCandidates, metricKey]);
 
   const { data: trends, isLoading: trendsLoading } = useQuery({
-    queryKey: ['admin-api-quota-trends', props.provider, metricKey, bucket, rangePreset],
+    queryKey: ['admin-api-quota-trends', props.provider, metricKey, bucket, effectiveRangePreset],
     queryFn: async (): Promise<ProviderTrendData> => {
       const response = await api.get<ApiResponse<ProviderTrendData>>('/admin/provider-accounts/trends', {
         params: {
           provider: props.provider,
           metricKey,
           bucket,
-          from: rangeFromPreset(rangePreset).toISOString(),
+          from: rangeFromPreset(effectiveRangePreset).toISOString(),
           to: new Date().toISOString(),
         },
       });
       return response.data.data;
     },
+    refetchInterval: props.pollingIntervalMs ?? 60_000,
+    placeholderData: (previousData) => previousData,
+  });
+
+  const { data: requestCountTrends } = useQuery({
+    queryKey: ['admin-api-quota-request-count-trends', props.provider, bucket, effectiveRangePreset],
+    queryFn: async (): Promise<ProviderTrendData> => {
+      const response = await api.get<ApiResponse<ProviderTrendData>>('/admin/provider-accounts/trends', {
+        params: {
+          provider: props.provider,
+          metricKey: 'requestCount',
+          bucket,
+          from: rangeFromPreset(effectiveRangePreset).toISOString(),
+          to: new Date().toISOString(),
+        },
+      });
+      return response.data.data;
+    },
+    enabled: !isQweather && metricKey !== 'requestCount',
     refetchInterval: props.pollingIntervalMs ?? 60_000,
     placeholderData: (previousData) => previousData,
   });
@@ -190,8 +261,38 @@ export function ApiQuotaProviderCard(props: ApiQuotaProviderCardProps): React.Re
       }),
     [props.locale, props.overviewItem?.usageRate],
   );
-  const activeChartOption = chartType === 'line' ? lineOption : chartType === 'area' ? areaOption : donutOption;
+
+  const activeChartOption =
+    chartType === 'line' ? lineOption : chartType === 'area' ? areaOption : donutOption;
   const metricName = props.t(`admin.apiQuota.metric.${metricKey}`);
+  const requestCountSeries = React.useMemo(
+    () =>
+      (metricKey === 'requestCount' ? trends : requestCountTrends)?.series.find(
+        (item) => item.provider === props.provider && item.metricKey === 'requestCount',
+      ),
+    [metricKey, props.provider, requestCountTrends, trends],
+  );
+
+  const requestCountValue = React.useMemo(() => {
+    if (isQweather) return props.overviewItem?.requestCount ?? null;
+    return getRangeAwareRequestCountValue({
+      fallback: props.overviewItem?.requestCount ?? null,
+      meta: props.overviewItem?.requestCountMeta,
+      series: requestCountSeries,
+    });
+  }, [isQweather, props.overviewItem?.requestCount, props.overviewItem?.requestCountMeta, requestCountSeries]);
+
+  const requestCountLabel = React.useMemo(() => {
+    if (isQweather) {
+      return getQweatherRequestCountLabel(props.locale, props.overviewItem?.requestCountMeta);
+    }
+    return getRangeRequestCountLabel({
+      locale: props.locale,
+      t: props.t,
+      rangePreset: effectiveRangePreset,
+      meta: props.overviewItem?.requestCountMeta,
+    });
+  }, [effectiveRangePreset, isQweather, props.locale, props.overviewItem?.requestCountMeta, props.t]);
 
   const metricRows = React.useMemo(() => {
     const item = props.overviewItem;
@@ -199,8 +300,8 @@ export function ApiQuotaProviderCard(props: ApiQuotaProviderCardProps): React.Re
     return [
       {
         key: 'requestCount',
-        label: props.t('admin.apiQuota.metric.requestCount'),
-        value: formatNumber(item.requestCount),
+        label: requestCountLabel,
+        value: formatNumber(requestCountValue),
       },
       ...(item.quotaUsed !== null || item.quotaLimit !== null
         ? [
@@ -230,7 +331,7 @@ export function ApiQuotaProviderCard(props: ApiQuotaProviderCardProps): React.Re
           ]
         : []),
     ];
-  }, [isQweather, props.overviewItem, props.t]);
+  }, [isQweather, props.overviewItem, props.t, requestCountLabel, requestCountValue]);
 
   const chartTabs = React.useMemo(
     () =>
@@ -252,12 +353,18 @@ export function ApiQuotaProviderCard(props: ApiQuotaProviderCardProps): React.Re
   );
 
   const hasNoPoints = (trends?.series ?? []).every((item) => item.points.length === 0);
+  const requestCountHint = React.useMemo(
+    () => describeRequestCountScope(props.locale, props.overviewItem?.requestCountMeta),
+    [props.locale, props.overviewItem?.requestCountMeta],
+  );
 
   return (
     <section className="h-full rounded-2xl bg-slate-50/80 p-4 md:p-5">
       <div className="space-y-1 pb-4">
         <div className="flex items-center justify-between gap-2">
-          <h3 className="text-base font-semibold text-slate-900">{props.t(`admin.apiQuota.provider.${props.provider}`)}</h3>
+          <h3 className="text-base font-semibold text-slate-900">
+            {props.t(`admin.apiQuota.provider.${props.provider}`)}
+          </h3>
           <Badge variant={props.overviewItem?.status === 'ok' ? 'success' : 'warning'} className="shrink-0">
             {props.overviewItem?.status === 'ok'
               ? props.t('admin.apiQuota.status.ok')
@@ -274,7 +381,7 @@ export function ApiQuotaProviderCard(props: ApiQuotaProviderCardProps): React.Re
       </div>
 
       <div className="space-y-4">
-        <div className="grid gap-2 rounded-xl bg-white p-3 shadow-sm md:grid-cols-[1fr_auto]">
+        <div className={isQweather ? 'rounded-xl bg-white p-3 shadow-sm' : 'grid gap-2 rounded-xl bg-white p-3 shadow-sm md:grid-cols-[1fr_auto]'}>
           {!isQweather ? (
             <Select value={metricKey} onValueChange={(value: ProviderMetricKey) => setMetricKey(value)}>
               <SelectTrigger className="h-9 border-slate-200 bg-slate-50">
@@ -288,17 +395,23 @@ export function ApiQuotaProviderCard(props: ApiQuotaProviderCardProps): React.Re
                 ))}
               </SelectContent>
             </Select>
-          ) : null}
+          ) : (
+            <div className="text-sm text-muted-foreground">
+              {textByLocale(props.locale, '和风天气请求次数仅提供当天累计口径，已移除时间范围切换。', 'QWeather request count only supports today-based totals, so range switching was removed.')}
+            </div>
+          )}
 
-          <Select value={rangePreset} onValueChange={(value: RangePreset) => setRangePreset(value)}>
-            <SelectTrigger className="h-9 border-slate-200 bg-slate-50">
-              <SelectValue placeholder={props.t('admin.apiQuota.rangeLabel')} />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="7d">{props.t('admin.apiQuota.range.7d')}</SelectItem>
-              <SelectItem value="30d">{props.t('admin.apiQuota.range.30d')}</SelectItem>
-            </SelectContent>
-          </Select>
+          {!isQweather ? (
+            <Select value={rangePreset} onValueChange={(value: RangePreset) => setRangePreset(value)}>
+              <SelectTrigger className="h-9 border-slate-200 bg-slate-50">
+                <SelectValue placeholder={props.t('admin.apiQuota.rangeLabel')} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="7d">{props.t('admin.apiQuota.range.7d')}</SelectItem>
+                <SelectItem value="30d">{props.t('admin.apiQuota.range.30d')}</SelectItem>
+              </SelectContent>
+            </Select>
+          ) : null}
         </div>
 
         {!props.overviewItem && props.overviewLoading ? (
@@ -308,18 +421,10 @@ export function ApiQuotaProviderCard(props: ApiQuotaProviderCardProps): React.Re
           </div>
         ) : isQweather ? (
           <div className="rounded-xl bg-white p-4 shadow-sm">
-            <div className="text-sm text-muted-foreground">{props.t('admin.apiQuota.metric.requestCount')}</div>
-            <div className="mt-1 text-3xl font-semibold text-slate-900">
-              {formatNumber(props.overviewItem?.requestCount ?? null)}
-            </div>
-            {props.overviewItem?.requestCountMeta ? (
-              <div className="mt-2 text-xs text-muted-foreground">
-                {textByLocale(props.locale, '\u7edf\u8ba1\u53e3\u5f84', 'Scope')}:{' '}
-                {scopeLabel(props.locale, props.overviewItem.requestCountMeta.scope)}
-                <span className="mx-1.5">|</span>
-                {textByLocale(props.locale, '\u6570\u636e\u6765\u6e90', 'Source')}:{' '}
-                {sourceLabel(props.locale, props.overviewItem.requestCountMeta.source)}
-              </div>
+            <div className="text-sm text-muted-foreground">{requestCountLabel}</div>
+            <div className="mt-1 text-3xl font-semibold text-slate-900">{formatNumber(requestCountValue)}</div>
+            {requestCountHint ? (
+              <p className="mt-2 text-xs leading-5 text-muted-foreground">{requestCountHint}</p>
             ) : null}
           </div>
         ) : (

@@ -8,4 +8,5 @@ export { AdminPermissionsPage } from './permissions-page';
 export { AdminProfileSettingsPage } from './profile-settings-page';
 export { AdminRegisterPage } from './register-page';
 export { AdminSystemPage } from './system-page';
+export { AdminUserDetailPage } from './user-detail-page';
 export { AdminUsersPage } from './users-page';

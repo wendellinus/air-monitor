@@ -1,4 +1,4 @@
-﻿import React from 'react';
+import React from 'react';
 import type { DashboardWidgetId } from '@air-monitor/shared';
 
 import { RefreshIconButton } from '@/ui/admin/components/feedback';

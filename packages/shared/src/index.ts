@@ -11,6 +11,8 @@ export type {
   AdminResetPasswordRequest,
   AdminSetUserRoleRequest,
   AdminSetUserStatusRequest,
+  AdminUpdateUserDetailRequest,
+  AdminUserDetailData,
   UserFavoriteCityCreateRequest,
   UserListData,
   UserListItem,
@@ -37,7 +39,7 @@ export type {
   UpdateDashboardLayoutRequest,
 } from './contracts/dashboard-layout';
 export { DashboardWidgetIds } from './contracts/dashboard-layout';
-export type { CityItem, SearchCityQuery, TopCitiesQuery } from './contracts/city';
+export type { AdminCityListData, CityItem, SearchCityQuery, TopCitiesQuery } from './contracts/city';
 export type { AirDailyItem, AirHourlyItem, AirNowItem, CityIdQuery } from './contracts/air';
 export type { WeatherAlertItem, WeatherAlertResponse } from './contracts/alert';
 export type { NoticeAdminListData, NoticeItem } from './contracts/notice';

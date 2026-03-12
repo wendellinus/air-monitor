@@ -7,7 +7,9 @@ import { Permissions } from '../../shared/authz/permissions.decorator';
 import { PermissionsGuard } from '../../shared/authz/permissions.guard';
 import { Roles } from '../../shared/authz/roles.decorator';
 import { RolesGuard } from '../../shared/authz/roles.guard';
+import { CurrentUser } from '../auth/current-user.decorator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import type { JwtUser } from '../auth/types';
 
 import { AdminCreateNoticeDto } from './dto/admin-create-notice.dto';
 import { AdminNoticeListQueryDto } from './dto/admin-notice-list-query.dto';
@@ -28,6 +30,7 @@ export class AdminNoticeController {
       id: n.id,
       title: n.title,
       content: n.content,
+      createdByName: n.createdByName,
       startTime: n.startTime.toISOString(),
       endTime: n.endTime.toISOString(),
       status: n.status,
@@ -53,8 +56,8 @@ export class AdminNoticeController {
 
   @Permissions('notices.create')
   @Post()
-  async create(@Body() dto: AdminCreateNoticeDto): Promise<{ id: number }> {
-    return this.notices.createManualNotice(dto);
+  async create(@Body() dto: AdminCreateNoticeDto, @CurrentUser() user: JwtUser): Promise<{ id: number }> {
+    return this.notices.createManualNotice(dto, user.username);
   }
 
   @Permissions('notices.create')

@@ -2,40 +2,51 @@ import { Inject, Injectable } from '@nestjs/common';
 
 import type { PermissionTreeNode, RolePermissionTreeData } from '@air-monitor/shared';
 
+import { AppError } from '../../shared/app-error';
 import type { UserRole } from '../../shared/authz/user-role';
 import { UserRoles } from '../../shared/authz/user-role';
+import { ErrorCodes } from '../../shared/error-codes';
 
 import { PermissionRepository, type PermissionEntity } from './permission.repository';
 
 type PermissionDefinition = PermissionEntity;
 
 const PERMISSION_DEFINITIONS: PermissionDefinition[] = [
-  { key: 'dashboard.view', label: '仪表盘（查看）', type: 'menu', parentKey: null, sort: 10 },
-  { key: 'users.view', label: '用户管理（查看）', type: 'menu', parentKey: null, sort: 20 },
-  { key: 'users.status.update', label: '用户状态（修改）', type: 'action', parentKey: 'users.view', sort: 21 },
-  { key: 'users.role.update', label: '用户角色（修改）', type: 'action', parentKey: 'users.view', sort: 22 },
-  { key: 'users.password.reset', label: '用户密码（重置）', type: 'action', parentKey: 'users.view', sort: 23 },
-  { key: 'notices.view', label: '公告管理（查看）', type: 'menu', parentKey: null, sort: 30 },
-  { key: 'notices.create', label: '公告（创建）', type: 'action', parentKey: 'notices.view', sort: 31 },
-  { key: 'notices.publish', label: '公告（发布/下线）', type: 'action', parentKey: 'notices.view', sort: 32 },
-  { key: 'cities.view', label: '城市监控（查看）', type: 'menu', parentKey: null, sort: 40 },
-  { key: 'favorites.view', label: '收藏管理（查看）', type: 'menu', parentKey: null, sort: 50 },
-  { key: 'favorites.delete', label: '收藏记录（删除）', type: 'action', parentKey: 'favorites.view', sort: 51 },
-  { key: 'system.view', label: '系统设置（查看）', type: 'menu', parentKey: null, sort: 60 },
-  { key: 'system.update', label: '系统配置（修改）', type: 'action', parentKey: 'system.view', sort: 61 },
-  { key: 'permissions.view', label: '权限管理（查看）', type: 'menu', parentKey: null, sort: 70 },
+  { key: 'dashboard.view', label: 'Dashboard (View)', type: 'menu', parentKey: null, sort: 10 },
+  { key: 'users.view', label: 'User Management (View)', type: 'menu', parentKey: null, sort: 20 },
+  { key: 'users.profile.update', label: 'User Profile (Update)', type: 'action', parentKey: 'users.view', sort: 21 },
+  {
+    key: 'users.permission.update',
+    label: 'User Permissions (Update)',
+    type: 'action',
+    parentKey: 'users.view',
+    sort: 22,
+  },
+  { key: 'users.status.update', label: 'User Status (Update)', type: 'action', parentKey: 'users.view', sort: 23 },
+  { key: 'users.role.update', label: 'User Role (Update)', type: 'action', parentKey: 'users.view', sort: 24 },
+  { key: 'users.password.reset', label: 'User Password (Reset)', type: 'action', parentKey: 'users.view', sort: 25 },
+  { key: 'users.delete', label: 'User (Soft Delete)', type: 'action', parentKey: 'users.view', sort: 26 },
+  { key: 'notices.view', label: 'Notice Management (View)', type: 'menu', parentKey: null, sort: 30 },
+  { key: 'notices.create', label: 'Notice (Create)', type: 'action', parentKey: 'notices.view', sort: 31 },
+  { key: 'notices.publish', label: 'Notice (Publish/Unpublish)', type: 'action', parentKey: 'notices.view', sort: 32 },
+  { key: 'cities.view', label: 'City Monitoring (View)', type: 'menu', parentKey: null, sort: 40 },
+  { key: 'favorites.view', label: 'Favorites Management (View)', type: 'menu', parentKey: null, sort: 50 },
+  { key: 'favorites.delete', label: 'Favorite Record (Delete)', type: 'action', parentKey: 'favorites.view', sort: 51 },
+  { key: 'system.view', label: 'System Settings (View)', type: 'menu', parentKey: null, sort: 60 },
+  { key: 'system.update', label: 'System Configuration (Update)', type: 'action', parentKey: 'system.view', sort: 61 },
+  { key: 'permissions.view', label: 'Permission Management (View)', type: 'menu', parentKey: null, sort: 70 },
   {
     key: 'permissions.update',
-    label: '角色权限（修改）',
+    label: 'Role Permissions (Update)',
     type: 'action',
     parentKey: 'permissions.view',
     sort: 71,
   },
-  { key: 'apiQuota.view', label: 'API 配额中心（查看）', type: 'menu', parentKey: null, sort: 80 },
-  { key: 'apiQuota.refresh', label: 'API 配额中心（刷新）', type: 'action', parentKey: 'apiQuota.view', sort: 81 },
+  { key: 'apiQuota.view', label: 'API Quota Center (View)', type: 'menu', parentKey: null, sort: 80 },
+  { key: 'apiQuota.refresh', label: 'API Quota Center (Refresh)', type: 'action', parentKey: 'apiQuota.view', sort: 81 },
   {
     key: 'apiQuota.config.update',
-    label: 'API 配额中心（配置修改）',
+    label: 'API Quota Center (Config Update)',
     type: 'action',
     parentKey: 'apiQuota.view',
     sort: 82,
@@ -47,6 +58,7 @@ const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, string[]> = {
   operator: [
     'dashboard.view',
     'users.view',
+    'users.profile.update',
     'users.status.update',
     'users.password.reset',
     'notices.view',
@@ -58,7 +70,19 @@ const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, string[]> = {
     'system.view',
     'apiQuota.view',
   ],
-  user: ['dashboard.view', 'cities.view', 'favorites.view'],
+  user: ['dashboard.view', 'cities.view', 'favorites.view', 'favorites.delete'],
+};
+
+const ROLE_REQUIRED_ADDITIONS: Partial<Record<UserRole, string[]>> = {
+  operator: ['users.profile.update'],
+  user: ['favorites.view', 'favorites.delete'],
+};
+
+export type UserPermissionDetail = {
+  rolePermissionKeys: string[];
+  deniedPermissionKeys: string[];
+  effectivePermissionKeys: string[];
+  permissionTree: PermissionTreeNode[];
 };
 
 @Injectable()
@@ -93,9 +117,53 @@ export class PermissionService {
     return this.getRolePermissionTree(role);
   }
 
-  async getMyPermissionKeys(role: UserRole): Promise<string[]> {
+  async getMyPermissionKeys(userId: number, role: UserRole): Promise<string[]> {
     await this.ensureInitialized();
-    return this.repo.listRolePermissionKeys(role);
+    const detail = await this.getUserPermissionDetail(userId, role);
+    return detail.effectivePermissionKeys;
+  }
+
+  async getUserPermissionDetail(userId: number, role: UserRole): Promise<UserPermissionDetail> {
+    await this.ensureInitialized();
+
+    const [allPermissions, rolePermissionKeys, deniedPermissionKeys] = await Promise.all([
+      this.repo.listPermissions(),
+      this.repo.listRolePermissionKeys(role),
+      this.repo.listUserDeniedPermissionKeys(userId),
+    ]);
+
+    const rolePermissionSet = new Set(rolePermissionKeys);
+    const normalizedDeniedPermissionKeys = Array.from(
+      new Set(deniedPermissionKeys.filter((key) => rolePermissionSet.has(key))),
+    );
+    const deniedSet = new Set(normalizedDeniedPermissionKeys);
+
+    return {
+      rolePermissionKeys,
+      deniedPermissionKeys: normalizedDeniedPermissionKeys,
+      effectivePermissionKeys: rolePermissionKeys.filter((key) => !deniedSet.has(key)),
+      permissionTree: this.toTree(allPermissions),
+    };
+  }
+
+  async replaceUserDeniedPermissions(
+    userId: number,
+    role: UserRole,
+    deniedPermissionKeys: string[],
+  ): Promise<UserPermissionDetail> {
+    await this.ensureInitialized();
+
+    const rolePermissionKeys = await this.repo.listRolePermissionKeys(role);
+    const rolePermissionSet = new Set(rolePermissionKeys);
+    const normalized = Array.from(new Set(deniedPermissionKeys));
+    const invalidKeys = normalized.filter((key) => !rolePermissionSet.has(key));
+
+    if (invalidKeys.length > 0) {
+      throw new AppError(ErrorCodes.ParamError, 'Only role permissions can be removed from a user.');
+    }
+
+    await this.repo.replaceUserDeniedPermissions(userId, normalized);
+    return this.getUserPermissionDetail(userId, role);
   }
 
   private async ensureInitialized(): Promise<void> {
@@ -127,6 +195,15 @@ export class PermissionService {
 
         if (role === 'admin') {
           await this.repo.replaceRolePermissions(role, PERMISSION_DEFINITIONS.map((item) => item.key));
+          continue;
+        }
+
+        const requiredAdditions = ROLE_REQUIRED_ADDITIONS[role] ?? [];
+        if (requiredAdditions.length > 0) {
+          const merged = Array.from(new Set([...existing, ...requiredAdditions]));
+          if (merged.length !== existing.length) {
+            await this.repo.replaceRolePermissions(role, merged);
+          }
         }
       }
 

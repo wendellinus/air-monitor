@@ -40,17 +40,24 @@ export function AdminSystemPage(): React.ReactNode {
   const canUpdateSystem = hasPermission('system.update');
   const canViewApiQuota = hasPermission('apiQuota.view');
   const canRefreshApiQuota = hasPermission('apiQuota.refresh');
+  const availableTabs = React.useMemo<SystemTab[]>(() => {
+    const nextTabs: SystemTab[] = [];
+    if (canViewApiQuota) {
+      nextTabs.push('qweather', 'amap');
+    }
+    if (canViewSystem) {
+      nextTabs.push('polling');
+    }
+    return nextTabs;
+  }, [canViewApiQuota, canViewSystem]);
 
   const tabFromQuery = searchParams.get('tab');
   const resolvedTab: SystemTab = React.useMemo(() => {
-    if (tabFromQuery && TAB_SET.has(tabFromQuery)) {
-      if ((tabFromQuery === 'qweather' || tabFromQuery === 'amap') && !canViewApiQuota) {
-        return 'polling';
-      }
+    if (tabFromQuery && TAB_SET.has(tabFromQuery) && availableTabs.includes(tabFromQuery as SystemTab)) {
       return tabFromQuery as SystemTab;
     }
-    return canViewApiQuota ? 'qweather' : 'polling';
-  }, [canViewApiQuota, tabFromQuery]);
+    return availableTabs[0] ?? 'polling';
+  }, [availableTabs, tabFromQuery]);
   const [activeTab, setActiveTab] = React.useState<SystemTab>(resolvedTab);
 
   React.useEffect(() => {
@@ -59,14 +66,14 @@ export function AdminSystemPage(): React.ReactNode {
 
   const applyTab = React.useCallback(
     (tab: string): void => {
-      if (!TAB_SET.has(tab)) return;
+      if (!TAB_SET.has(tab) || !availableTabs.includes(tab as SystemTab)) return;
       const nextTab = tab as SystemTab;
       setActiveTab(nextTab);
       const next = new URLSearchParams(searchParams);
       next.set('tab', nextTab);
       setSearchParams(next, { replace: true });
     },
-    [searchParams, setSearchParams],
+    [availableTabs, searchParams, setSearchParams],
   );
 
   React.useEffect(() => {
@@ -293,24 +300,30 @@ export function AdminSystemPage(): React.ReactNode {
   );
 
   const quotaTabs = React.useMemo(
-    () => [
-      {
-        title: t('admin.apiQuota.provider.qweather'),
-        value: 'qweather',
-        content: qweatherTabContent,
-      },
-      {
-        title: t('admin.apiQuota.provider.amap'),
-        value: 'amap',
-        content: amapTabContent,
-      },
-      {
-        title: t('admin.system.polling.title'),
-        value: 'polling',
-        content: pollingTabContent,
-      },
-    ],
-    [amapTabContent, pollingTabContent, qweatherTabContent, t],
+    () => {
+      const tabs: Array<{ title: string; value: string; content: React.ReactNode }> = [];
+      if (canViewApiQuota) {
+        tabs.push({
+          title: t('admin.apiQuota.provider.qweather'),
+          value: 'qweather',
+          content: qweatherTabContent,
+        });
+        tabs.push({
+          title: t('admin.apiQuota.provider.amap'),
+          value: 'amap',
+          content: amapTabContent,
+        });
+      }
+      if (canViewSystem) {
+        tabs.push({
+          title: t('admin.system.polling.title'),
+          value: 'polling',
+          content: pollingTabContent,
+        });
+      }
+      return tabs;
+    },
+    [amapTabContent, canViewApiQuota, canViewSystem, pollingTabContent, qweatherTabContent, t],
   );
 
   const showQuotaRefresh = (activeTab === 'qweather' || activeTab === 'amap') && canRefreshApiQuota;

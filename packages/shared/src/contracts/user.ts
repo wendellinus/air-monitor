@@ -1,6 +1,7 @@
 import type { PageResult } from '../pagination';
 import type { UserRole } from '../user-role';
 import type { CityItem } from './city';
+import type { PermissionTreeNode } from './permission';
 
 export type UserListItem = {
   id: number;
@@ -23,6 +24,24 @@ export type AdminResetPasswordRequest = {
 
 export type AdminSetUserRoleRequest = {
   role: UserRole;
+};
+
+export type AdminUserDetailData = {
+  id: number;
+  username: string;
+  role: UserRole;
+  isActive: boolean;
+  createdAt: string;
+  rolePermissionKeys: string[];
+  deniedPermissionKeys: string[];
+  effectivePermissionKeys: string[];
+  permissionTree: PermissionTreeNode[];
+};
+
+export type AdminUpdateUserDetailRequest = {
+  username: string;
+  isActive: boolean;
+  deniedPermissionKeys: string[];
 };
 
 export type UserFavoriteCityCreateRequest = CityItem;

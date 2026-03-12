@@ -1,10 +1,10 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import type { MePermissionsData, MeResponseData } from '@air-monitor/shared';
 
 import { api } from '@/shared/api';
 import { clearTokens } from '@/shared/auth';
+import { redirectToLogin } from '@/shared/auth-session';
 import { useI18n } from '@/shared/i18n';
 import type { Locale } from '@/shared/i18n';
 import type { ApiResponse } from '@/shared/types';
@@ -13,6 +13,7 @@ import { useAdminSessionStore } from '@/ui/admin/stores/admin-session-store';
 type AdminSessionState = {
   me: MeResponseData | null;
   permissionKeys: string[] | null;
+  permissionsReady: boolean;
   handleLogout: () => void;
 };
 
@@ -21,12 +22,18 @@ function normalizeLocale(value: string): Locale {
 }
 
 export function useAdminSession(): AdminSessionState {
-  const nav = useNavigate();
   const { t, setLocale } = useI18n();
   const me = useAdminSessionStore((state) => state.me);
   const permissionKeys = useAdminSessionStore((state) => state.permissionKeys);
   const setSession = useAdminSessionStore((state) => state.setSession);
   const clearSession = useAdminSessionStore((state) => state.clearSession);
+  const [permissionsReady, setPermissionsReady] = React.useState<boolean>(() => permissionKeys !== null);
+
+  React.useEffect(() => {
+    if (permissionKeys !== null) {
+      setPermissionsReady(true);
+    }
+  }, [permissionKeys]);
 
   React.useEffect(() => {
     let mounted = true;
@@ -43,10 +50,14 @@ export function useAdminSession(): AdminSessionState {
           setSession({ me: nextMe, permissionKeys: permissionRes.data.data.permissions });
         } catch {
           if (!mounted) return;
-          setSession({ me: nextMe, permissionKeys: null });
+          setSession({ me: nextMe, permissionKeys: [] });
         }
       } catch {
         // Keep persisted session if refresh bootstrap fails.
+      } finally {
+        if (mounted) {
+          setPermissionsReady(true);
+        }
       }
     };
     void bootstrapSession();
@@ -65,11 +76,10 @@ export function useAdminSession(): AdminSessionState {
       }
       clearTokens();
       clearSession();
-      nav('/admin/login', { replace: true });
-      toast.success(t('admin.toast.logoutSuccess'));
+      redirectToLogin();
     };
     void doLogout().catch(() => toast.error(t('admin.toast.logoutFail')));
-  }, [clearSession, nav, t]);
+  }, [clearSession, t]);
 
-  return { me, permissionKeys, handleLogout };
+  return { me, permissionKeys, permissionsReady, handleLogout };
 }

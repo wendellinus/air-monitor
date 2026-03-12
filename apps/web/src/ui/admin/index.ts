@@ -10,5 +10,6 @@ export {
   AdminProfileSettingsPage,
   AdminRegisterPage,
   AdminSystemPage,
+  AdminUserDetailPage,
   AdminUsersPage,
 } from './pages';

@@ -71,14 +71,22 @@ function middleEllipsis(value: string, maxLength = 14): string {
 export function NavMain(): React.ReactNode {
   const { t } = useI18n();
   const { state } = useSidebar();
-  const { hasPermission } = useAdminAccess();
+  const { canAccessPath } = useAdminAccess();
+  const visibleItems = React.useMemo(
+    () => NAV_ITEMS.filter((item) => canAccessPath(item.to)),
+    [canAccessPath],
+  );
+
+  if (visibleItems.length === 0) {
+    return null;
+  }
 
   return (
     <SidebarGroup>
       <SidebarGroupLabel>{t('admin.nav.group')}</SidebarGroupLabel>
       <SidebarGroupContent>
         <SidebarMenu>
-          {NAV_ITEMS.filter((item) => hasPermission(item.permissionKey)).map(({ to, labelKey, icon: Icon, end }) => {
+          {visibleItems.map(({ to, labelKey, icon: Icon, end }) => {
             const label = t(labelKey);
             const shortLabel = middleEllipsis(label, 12);
             const showFullLabelTooltip = state !== 'collapsed' && shortLabel !== label;

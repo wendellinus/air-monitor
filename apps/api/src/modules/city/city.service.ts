@@ -90,11 +90,27 @@ export class CityService {
 
       return mapped;
     } catch (e) {
-      throw new AppError(ErrorCodes.ThirdParty, (e as Error).message);
+      const fallback = await this.repo.listRecent(n);
+      if (fallback.length > 0) return fallback;
+      throw new AppError(
+        ErrorCodes.ThirdParty,
+        `热门城市获取失败，请检查和风配置或稍后重试：${(e as Error).message}`,
+      );
     }
   }
 
   async upsertCity(city: CityEntity): Promise<void> {
     await this.repo.upsert(city);
+  }
+
+  async listAdmin(
+    page: number,
+    pageSize: number,
+    keyword?: string,
+  ): Promise<{ list: CityEntity[]; total: number; page: number; pageSize: number }> {
+    const currentPage = page > 0 ? page : 1;
+    const currentPageSize = pageSize > 0 ? pageSize : 10;
+    const { list, total } = await this.repo.listAdmin(currentPage, currentPageSize, keyword);
+    return { list, total, page: currentPage, pageSize: currentPageSize };
   }
 }

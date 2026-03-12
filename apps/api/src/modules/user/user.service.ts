@@ -4,6 +4,8 @@ import * as bcrypt from 'bcryptjs';
 import type {
   AdminFavoriteCityItem,
   AdminFavoriteCityListData,
+  AdminUpdateUserDetailRequest,
+  AdminUserDetailData,
   CityItem,
   DashboardLayoutData,
   DashboardLayoutItem,
@@ -21,6 +23,7 @@ import { AppError } from '../../shared/app-error';
 import type { UserRole } from '../../shared/authz/user-role';
 import { ErrorCodes } from '../../shared/error-codes';
 import { CityService } from '../city/city.service';
+import { PermissionService } from '../permission/permission.service';
 
 import { UserRepository } from './user.repository';
 
@@ -109,17 +112,25 @@ function normalizeDashboardLayout(input: DashboardLayoutItem[]): DashboardLayout
   return normalized;
 }
 
+function areStringSetsEqual(left: string[], right: string[]): boolean {
+  if (left.length !== right.length) return false;
+  const leftSet = new Set(left);
+  if (leftSet.size !== right.length) return false;
+  return right.every((item) => leftSet.has(item));
+}
+
 @Injectable()
 export class UserService {
   constructor(
     @Inject(UserRepository) private readonly repo: UserRepository,
     @Inject(CityService) private readonly cityService: CityService,
+    @Inject(PermissionService) private readonly permissionService: PermissionService,
   ) {}
 
   async getMe(userId: number): Promise<MeResponseData> {
     const found = await this.repo.findProfileById(userId);
     if (!found) {
-      throw new AppError(ErrorCodes.Unauthorized, '账号不存在或已删除');
+      throw new AppError(ErrorCodes.Unauthorized, 'Account not found or deleted.');
     }
     return {
       id: found.id,
@@ -132,7 +143,7 @@ export class UserService {
   async getMyProfile(userId: number): Promise<MeProfileData> {
     const found = await this.repo.findSelfProfileById(userId);
     if (!found) {
-      throw new AppError(ErrorCodes.Unauthorized, '\u8d26\u6237\u4e0d\u5b58\u5728\u6216\u5df2\u5220\u9664');
+      throw new AppError(ErrorCodes.Unauthorized, 'Account not found or deleted.');
     }
     return {
       id: found.id,
@@ -146,13 +157,13 @@ export class UserService {
   async updateMyProfile(userId: number, payload: UpdateMeProfileRequest): Promise<MeProfileData> {
     const found = await this.repo.findSelfProfileById(userId);
     if (!found) {
-      throw new AppError(ErrorCodes.Unauthorized, '\u8d26\u6237\u4e0d\u5b58\u5728\u6216\u5df2\u5220\u9664');
+      throw new AppError(ErrorCodes.Unauthorized, 'Account not found or deleted.');
     }
 
     if (payload.username !== found.username) {
       const existsUser = await this.repo.findByUsername(payload.username);
       if (existsUser && existsUser.id !== userId) {
-        throw new AppError(ErrorCodes.ParamError, '\u7528\u6237\u540d\u5df2\u5b58\u5728');
+        throw new AppError(ErrorCodes.ParamError, 'Username already exists.');
       }
     }
 
@@ -215,7 +226,7 @@ export class UserService {
 
   async setUserActive(id: number, isActive: boolean): Promise<void> {
     const found = await this.repo.findById(id);
-    if (!found) throw new AppError(ErrorCodes.ParamError, '用户不存在');
+    if (!found) throw new AppError(ErrorCodes.ParamError, 'User not found.');
 
     const now = new Date();
     await this.repo.updateStatus(id, isActive, now);
@@ -224,7 +235,7 @@ export class UserService {
 
   async resetPassword(id: number, newPassword: string): Promise<void> {
     const found = await this.repo.findById(id);
-    if (!found) throw new AppError(ErrorCodes.ParamError, '用户不存在');
+    if (!found) throw new AppError(ErrorCodes.ParamError, 'User not found.');
 
     const passwordHash = await bcrypt.hash(newPassword, 10);
     const now = new Date();
@@ -234,10 +245,101 @@ export class UserService {
 
   async setUserRole(id: number, role: UserRole): Promise<void> {
     const found = await this.repo.findById(id);
-    if (!found) throw new AppError(ErrorCodes.ParamError, '用户不存在');
+    if (!found) throw new AppError(ErrorCodes.ParamError, 'User not found.');
 
     const now = new Date();
     await this.repo.updateRole(id, role, now);
+    await this.repo.revokeAllRefreshTokens(id, now);
+  }
+
+  async getAdminUserDetail(id: number): Promise<AdminUserDetailData> {
+    const found = await this.repo.findAdminDetailById(id);
+    if (!found) {
+      throw new AppError(ErrorCodes.ParamError, 'User not found.');
+    }
+
+    const permissionDetail = await this.permissionService.getUserPermissionDetail(found.id, found.role);
+    return {
+      id: found.id,
+      username: found.username,
+      role: found.role,
+      isActive: found.isActive,
+      createdAt: found.createdAt.toISOString(),
+      rolePermissionKeys: permissionDetail.rolePermissionKeys,
+      deniedPermissionKeys: permissionDetail.deniedPermissionKeys,
+      effectivePermissionKeys: permissionDetail.effectivePermissionKeys,
+      permissionTree: permissionDetail.permissionTree,
+    };
+  }
+
+  async updateAdminUserDetail(
+    actorUserId: number,
+    actorRole: UserRole,
+    id: number,
+    payload: AdminUpdateUserDetailRequest,
+  ): Promise<AdminUserDetailData> {
+    const found = await this.repo.findAdminDetailById(id);
+    if (!found) {
+      throw new AppError(ErrorCodes.ParamError, 'User not found.');
+    }
+
+    const currentPermissionDetail = await this.permissionService.getUserPermissionDetail(found.id, found.role);
+    const actorPermissionKeys = await this.permissionService.getMyPermissionKeys(actorUserId, actorRole);
+    const actorPermissionSet = new Set(actorPermissionKeys);
+
+    const usernameChanged = payload.username !== found.username;
+    const statusChanged = payload.isActive !== found.isActive;
+    const nextDeniedPermissionKeys = Array.from(new Set(payload.deniedPermissionKeys));
+    const deniedChanged = !areStringSetsEqual(
+      nextDeniedPermissionKeys,
+      currentPermissionDetail.deniedPermissionKeys,
+    );
+
+    if ((usernameChanged || statusChanged) && !actorPermissionSet.has('users.profile.update')) {
+      throw new AppError(ErrorCodes.Unauthorized, 'You do not have permission to update user profile fields.');
+    }
+
+    if (deniedChanged && !actorPermissionSet.has('users.permission.update')) {
+      throw new AppError(ErrorCodes.Unauthorized, 'You do not have permission to update user permissions.');
+    }
+
+    if (usernameChanged) {
+      const existsUser = await this.repo.findByUsername(payload.username);
+      if (existsUser && existsUser.id !== id) {
+        throw new AppError(ErrorCodes.ParamError, 'Username already exists.');
+      }
+    }
+
+    if (usernameChanged || statusChanged) {
+      const now = statusChanged ? new Date() : undefined;
+      await this.repo.updateAdminDetail(id, {
+        username: payload.username,
+        isActive: payload.isActive,
+        tokenInvalidBefore: now,
+        incrementTokenVersion: statusChanged,
+      });
+
+      if (statusChanged && now) {
+        await this.repo.revokeAllRefreshTokens(id, now);
+      }
+    }
+
+    if (deniedChanged) {
+      await this.permissionService.replaceUserDeniedPermissions(id, found.role, nextDeniedPermissionKeys);
+    }
+
+    return this.getAdminUserDetail(id);
+  }
+
+  async softDeleteUser(id: number): Promise<void> {
+    const found = await this.repo.findAdminDetailById(id);
+    if (!found) {
+      throw new AppError(ErrorCodes.ParamError, 'User not found.');
+    }
+
+    const now = new Date();
+    const archivedUsername = `deleted_${found.id}_${now.getTime()}`.slice(0, 20);
+    await this.repo.softDeleteUser(id, archivedUsername, now);
     await this.repo.revokeAllRefreshTokens(id, now);
   }
 
@@ -301,7 +403,7 @@ export class UserService {
   async updateLocale(userId: number, locale: UserLocale): Promise<MeResponseData> {
     const found = await this.repo.findProfileById(userId);
     if (!found) {
-      throw new AppError(ErrorCodes.Unauthorized, '账号不存在或已删除');
+      throw new AppError(ErrorCodes.Unauthorized, 'Account not found or deleted.');
     }
     await this.repo.updateLocale(userId, locale);
     return {
@@ -315,7 +417,7 @@ export class UserService {
   async getDashboardLayout(userId: number): Promise<DashboardLayoutData> {
     const foundUser = await this.repo.findProfileById(userId);
     if (!foundUser) {
-      throw new AppError(ErrorCodes.Unauthorized, '账户不存在或已删除');
+      throw new AppError(ErrorCodes.Unauthorized, 'Account not found or deleted.');
     }
 
     const saved = await this.repo.findDashboardLayoutByUserId(userId);
@@ -352,7 +454,7 @@ export class UserService {
   async updateDashboardLayout(userId: number, layout: DashboardLayoutItem[]): Promise<DashboardLayoutData> {
     const foundUser = await this.repo.findProfileById(userId);
     if (!foundUser) {
-      throw new AppError(ErrorCodes.Unauthorized, '账户不存在或已删除');
+      throw new AppError(ErrorCodes.Unauthorized, 'Account not found or deleted.');
     }
 
     const normalized = normalizeDashboardLayout(layout);

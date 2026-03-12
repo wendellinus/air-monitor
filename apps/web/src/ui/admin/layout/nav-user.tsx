@@ -17,6 +17,7 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { Badge } from '@/components/ui/badge';
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar';
 import { useI18n } from '@/shared/i18n';
 import { ADMIN_TOUR_START_EVENT } from '@/ui/admin/components/admin-driver-tour-button';
@@ -32,6 +33,33 @@ interface NavUserProps {
   onLogout: () => void;
 }
 
+function getRoleBadge(
+  t: (key: string) => string,
+  role: MeResponseData['role'] | undefined,
+): React.ReactNode {
+  if (role === 'admin') {
+    return (
+      <Badge variant="default" className="inline-flex h-6 w-fit shrink-0 rounded-full px-2.5 text-xs font-semibold tracking-normal">
+        {t('admin.users.role.admin')}
+      </Badge>
+    );
+  }
+
+  if (role === 'operator') {
+    return (
+      <Badge variant="secondary" className="inline-flex h-6 w-fit shrink-0 rounded-full px-2.5 text-xs font-semibold tracking-normal">
+        {t('admin.users.role.operator')}
+      </Badge>
+    );
+  }
+
+  return (
+    <Badge variant="outline" className="inline-flex h-6 w-fit shrink-0 rounded-full px-2.5 text-xs font-semibold tracking-normal">
+      {t('admin.users.role.user')}
+    </Badge>
+  );
+}
+
 export function NavUser({ user, onLogout }: NavUserProps): React.ReactNode {
   const navigate = useNavigate();
   const { t, locale } = useI18n();
@@ -40,11 +68,8 @@ export function NavUser({ user, onLogout }: NavUserProps): React.ReactNode {
   const username = user?.username ?? '-';
 
   const handleStartTour = React.useCallback((): void => {
-    navigate('/admin');
-    window.setTimeout(() => {
-      window.dispatchEvent(new Event(ADMIN_TOUR_START_EVENT));
-    }, 360);
-  }, [navigate]);
+    window.dispatchEvent(new Event(ADMIN_TOUR_START_EVENT));
+  }, []);
 
   return (
     <SidebarMenu>
@@ -59,11 +84,9 @@ export function NavUser({ user, onLogout }: NavUserProps): React.ReactNode {
               <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[12px] font-bold text-primary">
                 {avatarChar}
               </div>
-              <div className="grid flex-1 text-left text-sm leading-tight">
+              <div className="flex min-w-0 flex-1 items-center gap-2 text-left text-sm leading-tight">
                 <span className="truncate font-medium">{username}</span>
-                <span className="truncate text-[11px] text-muted-foreground/80 uppercase tracking-wider">
-                  {user?.role ?? ''}
-                </span>
+                {getRoleBadge(t, user?.role)}
               </div>
               <ChevronsUpDown className="ml-auto size-4" />
             </SidebarMenuButton>
@@ -79,11 +102,9 @@ export function NavUser({ user, onLogout }: NavUserProps): React.ReactNode {
                 <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[12px] font-bold text-primary">
                   {avatarChar}
                 </div>
-                <div className="grid flex-1 text-left text-sm leading-tight">
+                <div className="flex min-w-0 flex-1 items-center gap-2 text-left text-sm leading-tight">
                   <span className="truncate font-medium">{username}</span>
-                  <span className="truncate text-[11px] text-muted-foreground/80 uppercase tracking-wider">
-                    {user?.role ?? ''}
-                  </span>
+                  {getRoleBadge(t, user?.role)}
                 </div>
               </div>
             </DropdownMenuLabel>

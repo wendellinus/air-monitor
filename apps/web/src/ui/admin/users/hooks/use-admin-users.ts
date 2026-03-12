@@ -9,7 +9,6 @@ import type {
   UserFilterRole,
   UserFilterStatus,
   UserItem,
-  UserPageRole,
 } from '@/ui/admin/users/lib/types';
 
 const PAGE_SIZE = 15;
@@ -32,25 +31,16 @@ type UseAdminUsersResult = {
   createdTo: string;
   isInitialLoading: boolean;
   isRefreshing: boolean;
-  resetTarget: UserItem | null;
-  newPassword: string;
-  resetting: boolean;
   setPage: React.Dispatch<React.SetStateAction<number>>;
   setInputValue: React.Dispatch<React.SetStateAction<string>>;
   setRoleFilter: React.Dispatch<React.SetStateAction<UserFilterRole>>;
   setStatusFilter: React.Dispatch<React.SetStateAction<UserFilterStatus>>;
   setCreatedFrom: React.Dispatch<React.SetStateAction<string>>;
   setCreatedTo: React.Dispatch<React.SetStateAction<string>>;
-  setNewPassword: React.Dispatch<React.SetStateAction<string>>;
   handleSearch: () => void;
   clearSearch: () => void;
   clearFilters: () => void;
   refresh: () => Promise<void>;
-  toggleActive: (user: UserItem) => Promise<void>;
-  setRole: (user: UserItem, role: UserPageRole) => Promise<void>;
-  openResetDialog: (user: UserItem) => void;
-  closeResetDialog: () => void;
-  submitResetPassword: () => Promise<void>;
 };
 
 export function useAdminUsers(input: UseAdminUsersInput): UseAdminUsersResult {
@@ -66,10 +56,6 @@ export function useAdminUsers(input: UseAdminUsersInput): UseAdminUsersResult {
   const [createdTo, setCreatedTo] = React.useState<string>('');
   const [isInitialLoading, setIsInitialLoading] = React.useState<boolean>(true);
   const [isRefreshing, setIsRefreshing] = React.useState<boolean>(false);
-
-  const [resetTarget, setResetTarget] = React.useState<UserItem | null>(null);
-  const [newPassword, setNewPassword] = React.useState<string>('');
-  const [resetting, setResetting] = React.useState<boolean>(false);
   const firstLoadRef = React.useRef<boolean>(true);
 
   const totalPages = React.useMemo(() => Math.max(1, Math.ceil(total / PAGE_SIZE)), [total]);
@@ -155,75 +141,6 @@ export function useAdminUsers(input: UseAdminUsersInput): UseAdminUsersResult {
     await loadUsers(page, keyword, 'refresh');
   }, [keyword, loadUsers, page]);
 
-  const toggleActive = React.useCallback(
-    async (user: UserItem): Promise<void> => {
-      try {
-        await api.patch(`/admin/users/${user.id}/status`, { isActive: !user.isActive });
-        setUsers((current) =>
-          current.map((item) =>
-            item.id === user.id ? { ...item, isActive: !item.isActive } : item,
-          ),
-        );
-        toast.success(t('admin.users.toggleSuccess', { username: user.username }));
-      } catch (error: unknown) {
-        toast.error(error instanceof Error ? error.message : t('admin.users.toggleFail'));
-      }
-    },
-    [t],
-  );
-
-  const setRole = React.useCallback(
-    async (user: UserItem, role: UserPageRole): Promise<void> => {
-      if (user.role === role) return;
-      try {
-        await api.patch(`/admin/users/${user.id}/role`, { role });
-        setUsers((current) =>
-          current.map((item) => (item.id === user.id ? { ...item, role } : item)),
-        );
-        toast.success(
-          t('admin.users.roleSuccess', {
-            username: user.username,
-            role: t(`admin.users.role.${role}`),
-          }),
-        );
-      } catch (error: unknown) {
-        toast.error(error instanceof Error ? error.message : t('admin.users.roleFail'));
-      }
-    },
-    [t],
-  );
-
-  const openResetDialog = React.useCallback((user: UserItem): void => {
-    setResetTarget(user);
-    setNewPassword('');
-  }, []);
-
-  const closeResetDialog = React.useCallback((): void => {
-    setResetTarget(null);
-    setNewPassword('');
-  }, []);
-
-  const submitResetPassword = React.useCallback(async (): Promise<void> => {
-    if (!resetTarget) return;
-    if (newPassword.trim().length < 6) {
-      toast.error(t('admin.users.reset.short'));
-      return;
-    }
-
-    setResetting(true);
-    try {
-      await api.post(`/admin/users/${resetTarget.id}/reset-password`, {
-        newPassword: newPassword.trim(),
-      });
-      toast.success(t('admin.users.reset.success', { username: resetTarget.username }));
-      closeResetDialog();
-    } catch (error: unknown) {
-      toast.error(error instanceof Error ? error.message : t('admin.users.reset.fail'));
-    } finally {
-      setResetting(false);
-    }
-  }, [closeResetDialog, newPassword, resetTarget, t]);
-
   return {
     pageSize: PAGE_SIZE,
     users,
@@ -238,24 +155,15 @@ export function useAdminUsers(input: UseAdminUsersInput): UseAdminUsersResult {
     createdTo,
     isInitialLoading,
     isRefreshing,
-    resetTarget,
-    newPassword,
-    resetting,
     setPage,
     setInputValue,
     setRoleFilter,
     setStatusFilter,
     setCreatedFrom,
     setCreatedTo,
-    setNewPassword,
     handleSearch,
     clearSearch,
     clearFilters,
     refresh,
-    toggleActive,
-    setRole,
-    openResetDialog,
-    closeResetDialog,
-    submitResetPassword,
   };
 }

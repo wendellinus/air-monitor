@@ -36,10 +36,13 @@ export function SiteHeader(): React.ReactNode {
   const { t, locale } = useI18n();
 
   const isRoot = pathname === '/admin';
+  const isUserDetail = /^\/admin\/users\/\d+$/.test(pathname);
   const pageKey = BREADCRUMB_KEYS[pathname];
   const pageLabel =
     pathname === '/admin/profile-settings'
       ? textByLocale(locale, '账户设置', 'Account Settings')
+      : isUserDetail
+        ? t('admin.users.detail.title')
       : (pageKey ? t(pageKey) : null);
 
   return (

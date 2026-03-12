@@ -2,10 +2,10 @@ import React from 'react';
 
 import { useRateLimitedAction } from '@/hooks/use-rate-limited-action';
 import { useI18n } from '@/shared/i18n';
-import { AdminDriverTourButton } from '@/ui/admin/components/admin-driver-tour-button';
 import { PageContentSpin } from '@/ui/admin/components/page-content-spin';
 import { DashboardGrid } from '@/ui/admin/dashboard/components/dashboard-grid';
 import { DashboardHeader } from '@/ui/admin/dashboard/components/dashboard-header';
+import { DashboardSpotlight } from '@/ui/admin/dashboard/components/dashboard-spotlight';
 import { useDashboardCoreData } from '@/ui/admin/dashboard/hooks/use-dashboard-core-data';
 import { useDashboardLayoutManager } from '@/ui/admin/dashboard/hooks/use-dashboard-layout-manager';
 import { useDashboardWidgetConfig } from '@/ui/admin/dashboard/hooks/use-dashboard-widget-config';
@@ -19,6 +19,7 @@ export function AdminDashboard(): React.ReactNode {
     recentNotices,
     noticeSample,
     providerOverview,
+    spotlight,
     loading,
     isRefreshing,
     refresh,
@@ -67,16 +68,6 @@ export function AdminDashboard(): React.ReactNode {
   }, [layoutLoading, refresh]);
   const refreshAction = useRateLimitedAction(() => handleRefresh(), { cooldownMs: 800 });
 
-  React.useEffect(() => {
-    const viewport = document.querySelector<HTMLElement>('[data-admin-outlet-viewport]');
-    if (!viewport) return;
-    const previousOverflow = viewport.style.overflow;
-    viewport.style.overflow = 'hidden';
-    return () => {
-      viewport.style.overflow = previousOverflow;
-    };
-  }, []);
-
   return (
     <section className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden">
       <DashboardHeader
@@ -90,48 +81,61 @@ export function AdminDashboard(): React.ReactNode {
         onRefresh={refreshAction.run}
       />
 
-      <AdminDriverTourButton locale={locale} role={me?.role} hideTrigger />
-
-      <PageContentSpin spinning={layoutLoading} className="min-h-0 flex-1">
-        <DashboardGrid
-          layoutLoading={layoutLoading}
-          orderedLayout={orderedLayout}
-          sortableIds={sortableIds}
-          widgetTitles={widgetTitles}
+      <div
+        ref={scrollViewportRef}
+        className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden pb-10 pr-2 pt-4 [scroll-padding-bottom:2rem]"
+      >
+        <DashboardSpotlight
           locale={locale}
-          t={t}
-          loading={loading}
-          me={me}
-          userTotal={userTotal}
-          noticeTotal={noticeTotal}
-          recentNotices={recentNotices}
+          averageAqi={spotlight.averageAqi}
+          alertCityCount={spotlight.alertCityCount}
+          cleanestCities={spotlight.cleanestCities}
+          riskiestCities={spotlight.riskiestCities}
           noticeSample={noticeSample}
           providerOverview={providerOverview}
-          statusChartOption={statusChartOption}
-          statusChartCompactOption={statusChartCompactOption}
-          trendChartOption={trendChartOption}
-          trendChartCompactOption={trendChartCompactOption}
-          layoutSaving={layoutSaving}
-          maxColSpanForViewport={maxColSpanForViewport}
-          gridMetrics={gridMetrics}
-          resizingId={resizingId}
-          activeDragId={activeDragId}
-          activeDragSize={activeDragSize}
-          dragOverId={dragOverId}
-          sensors={sensors}
-          collisionDetectionStrategy={collisionDetectionStrategy}
-          gridRef={gridRef}
-          scrollViewportRef={scrollViewportRef}
-          onTogglePin={onTogglePin}
-          onDragStart={onDragStart}
-          onDragOver={onDragOver}
-          onDragEnd={onDragEnd}
-          onDragCancel={onDragCancel}
-          onWidgetResizeStart={onWidgetResizeStart}
-          onWidgetResizeMove={onWidgetResizeMove}
-          onWidgetResizeStop={onWidgetResizeStop}
         />
-      </PageContentSpin>
+
+        <PageContentSpin spinning={layoutLoading} className="min-h-0 pt-4">
+          <DashboardGrid
+            layoutLoading={layoutLoading}
+            orderedLayout={orderedLayout}
+            sortableIds={sortableIds}
+            widgetTitles={widgetTitles}
+            locale={locale}
+            t={t}
+            loading={loading}
+            me={me}
+            userTotal={userTotal}
+            noticeTotal={noticeTotal}
+            recentNotices={recentNotices}
+            noticeSample={noticeSample}
+            providerOverview={providerOverview}
+            statusChartOption={statusChartOption}
+            statusChartCompactOption={statusChartCompactOption}
+            trendChartOption={trendChartOption}
+            trendChartCompactOption={trendChartCompactOption}
+            layoutSaving={layoutSaving}
+            maxColSpanForViewport={maxColSpanForViewport}
+            gridMetrics={gridMetrics}
+            resizingId={resizingId}
+            activeDragId={activeDragId}
+            activeDragSize={activeDragSize}
+            dragOverId={dragOverId}
+            sensors={sensors}
+            collisionDetectionStrategy={collisionDetectionStrategy}
+            gridRef={gridRef}
+            scrollViewportRef={scrollViewportRef}
+            onTogglePin={onTogglePin}
+            onDragStart={onDragStart}
+            onDragOver={onDragOver}
+            onDragEnd={onDragEnd}
+            onDragCancel={onDragCancel}
+            onWidgetResizeStart={onWidgetResizeStart}
+            onWidgetResizeMove={onWidgetResizeMove}
+            onWidgetResizeStop={onWidgetResizeStop}
+          />
+        </PageContentSpin>
+      </div>
     </section>
   );
 }

@@ -8,7 +8,8 @@ import { useAdminCitiesTable } from '@/ui/admin/cities/hooks';
 
 export function AdminCitiesPage(): React.ReactNode {
   const { t } = useI18n();
-  const { table, isLoading, isFetching, refetch, columnsCount, columnNameMap } = useAdminCitiesTable(t);
+  const { table, isLoading, isFetching, keyword, setKeyword, refetch, columnsCount, columnNameMap } =
+    useAdminCitiesTable(t);
   const refreshAction = useRateLimitedAction(() => refetch(), { cooldownMs: 800 });
 
   return (
@@ -22,10 +23,12 @@ export function AdminCitiesPage(): React.ReactNode {
         <CitiesToolbar
           t={t}
           table={table}
+          keyword={keyword}
           isLoading={isLoading}
           isFetching={isFetching}
           refreshLocked={refreshAction.locked}
           columnNameMap={columnNameMap}
+          onKeywordChange={setKeyword}
           onRefresh={refreshAction.run}
         />
 

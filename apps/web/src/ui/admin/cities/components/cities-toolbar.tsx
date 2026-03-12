@@ -16,10 +16,12 @@ import type { CityRow, TranslateFn } from '@/ui/admin/cities/lib/types';
 type CitiesToolbarProps = {
   t: TranslateFn;
   table: Table<CityRow>;
+  keyword: string;
   isLoading: boolean;
   isFetching: boolean;
   refreshLocked: boolean;
   columnNameMap: Record<string, string>;
+  onKeywordChange: (value: string) => void;
   onRefresh: () => void;
 };
 
@@ -28,8 +30,8 @@ export function CitiesToolbar(props: CitiesToolbarProps): React.ReactNode {
     <div className="flex flex-wrap items-center gap-2">
       <Input
         placeholder={props.t('admin.cities.filterPlaceholder')}
-        value={(props.table.getColumn('city')?.getFilterValue() as string) ?? ''}
-        onChange={(event) => props.table.getColumn('city')?.setFilterValue(event.target.value)}
+        value={props.keyword}
+        onChange={(event) => props.onKeywordChange(event.target.value)}
         className="h-9 w-full max-w-sm"
       />
       <RefreshIconButton

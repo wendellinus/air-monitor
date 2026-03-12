@@ -87,4 +87,29 @@ describe('Auth (e2e)', () => {
 
     expect(meAfterLogout.body.code).toBe(40100);
   });
+
+  it('returns a clear message when a disabled account tries to log in', async () => {
+    const username = e2eUsername();
+    const password = '123456';
+
+    const reg = await request(t.app.getHttpServer())
+      .post('/api/v1/register')
+      .send({ username, password });
+
+    expect(reg.body.code).toBe(0);
+    const userId = reg.body.data.id as number;
+    createdUserIds.push(userId);
+
+    await t.prisma.user.update({
+      where: { id: userId },
+      data: { isActive: false },
+    });
+
+    const login = await request(t.app.getHttpServer())
+      .post('/api/v1/login')
+      .send({ username, password });
+
+    expect(login.body.code).toBe(40100);
+    expect(login.body.msg).toBe('账号已禁用，请联系管理员');
+  });
 });

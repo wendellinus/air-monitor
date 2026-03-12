@@ -16,6 +16,7 @@ export class NoticeController {
       id: n.id,
       title: n.title,
       content: n.content,
+      createdByName: n.createdByName,
       startTime: n.startTime.toISOString(),
       endTime: n.endTime.toISOString(),
       status: n.status,

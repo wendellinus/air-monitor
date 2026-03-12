@@ -16,6 +16,7 @@ type AMapMap = {
   setCenter: (center: [number, number]) => void;
   setZoom: (zoom: number) => void;
   setLimitBounds?: (bounds: unknown) => void;
+  setStatus?: (status: { dragEnable?: boolean }) => void;
   on?: (eventName: 'click', handler: (e: { lnglat: { lng: number; lat: number } }) => void) => void;
   off?: (eventName: 'click', handler: (e: { lnglat: { lng: number; lat: number } }) => void) => void;
   resize?: () => void;
@@ -24,7 +25,7 @@ type AMapMap = {
 
 type AMapMarker = {
   setMap: (map: AMapMap | null) => void;
-  on: (eventName: 'click', handler: () => void) => void;
+  on: (eventName: 'click', handler: (event?: { originEvent?: Event }) => void) => void;
 };
 
 type AMapSdk = {
@@ -195,9 +196,44 @@ export function AMapPanel(props: {
       const pos = toAmapCoord({ lon: m.lon, lat: m.lat });
       const host = props.renderMarker ? document.createElement('div') : null;
       if (host) {
-        host.className = 'pointer-events-none';
+        host.className = 'pointer-events-auto';
         host.style.transform = 'translate(-50%, -100%)';
         host.style.transformOrigin = 'center bottom';
+        host.style.cursor = 'pointer';
+        const disableMapDrag = () => map.setStatus?.({ dragEnable: false });
+        const enableMapDrag = () => map.setStatus?.({ dragEnable: true });
+        const stopNativeEvent = (event: Event) => {
+          event.preventDefault();
+          event.stopPropagation();
+        };
+        const startInteraction = (event: Event) => {
+          disableMapDrag();
+          stopNativeEvent(event);
+        };
+        const moveInteraction = (event: Event) => {
+          stopNativeEvent(event);
+        };
+        const endInteraction = (event: Event) => {
+          enableMapDrag();
+          stopNativeEvent(event);
+        };
+        host.addEventListener('pointerdown', startInteraction);
+        host.addEventListener('pointermove', moveInteraction);
+        host.addEventListener('pointerup', endInteraction);
+        host.addEventListener('pointercancel', endInteraction);
+        host.addEventListener('mousedown', startInteraction);
+        host.addEventListener('mousemove', moveInteraction);
+        host.addEventListener('mouseup', endInteraction);
+        host.addEventListener('mouseleave', enableMapDrag);
+        host.addEventListener('touchstart', startInteraction, { passive: false });
+        host.addEventListener('touchmove', moveInteraction, { passive: false });
+        host.addEventListener('touchend', endInteraction);
+        host.addEventListener('touchcancel', endInteraction);
+        host.addEventListener('click', (event) => {
+          enableMapDrag();
+          stopNativeEvent(event);
+          props.onMarkerClick(m.id);
+        });
       }
 
       const marker = new sdk.Marker({
@@ -205,7 +241,10 @@ export function AMapPanel(props: {
         title: m.name,
         content: host ?? undefined,
       });
-      marker.on('click', () => props.onMarkerClick(m.id));
+      marker.on('click', (event) => {
+        event?.originEvent?.stopPropagation?.();
+        props.onMarkerClick(m.id);
+      });
       marker.setMap(map);
       markersRef.current.set(m.id, marker);
       if (host) markerHostsRef.current.set(m.id, { host, name: m.name });

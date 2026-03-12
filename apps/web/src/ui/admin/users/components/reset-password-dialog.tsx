@@ -11,11 +11,11 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { AsyncButton } from '@/ui/admin/components/feedback';
-import type { TranslateFn, UserItem } from '@/ui/admin/users/lib/types';
+import type { TranslateFn } from '@/ui/admin/users/lib/types';
 
 type ResetPasswordDialogProps = {
   t: TranslateFn;
-  target: UserItem | null;
+  target: { id: number; username: string } | null;
   newPassword: string;
   resetting: boolean;
   onPasswordChange: (value: string) => void;
@@ -26,7 +26,7 @@ type ResetPasswordDialogProps = {
 export function ResetPasswordDialog(props: ResetPasswordDialogProps): React.ReactNode {
   return (
     <Dialog open={props.target !== null} onOpenChange={(open) => !open && props.onClose()}>
-      <DialogContent className="sm:max-w-sm">
+      <DialogContent key={props.target?.id ?? 'reset-password-dialog'} className="sm:max-w-sm">
         <DialogHeader>
           <DialogTitle>{props.t('admin.users.reset.dialogTitle')}</DialogTitle>
         </DialogHeader>
@@ -38,7 +38,10 @@ export function ResetPasswordDialog(props: ResetPasswordDialogProps): React.Reac
             <Label htmlFor="new-password">{props.t('admin.users.reset.passwordLabel')}</Label>
             <Input
               id="new-password"
+              name="new-password"
               type="password"
+              autoComplete="new-password"
+              autoFocus
               placeholder={props.t('admin.users.reset.passwordPlaceholder')}
               value={props.newPassword}
               onChange={(event) => props.onPasswordChange(event.target.value)}

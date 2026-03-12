@@ -6,9 +6,10 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { api } from '@/shared/api';
+import { SILENT_UI_ERROR_REQUEST_CONFIG } from '@/shared/http/api-request-config';
 import { useI18n } from '@/shared/i18n';
 import type { ApiResponse } from '@/shared/types';
-import { AdminAuthShell } from '@/ui/admin/auth/components';
+import { AdminAuthFeedback, AdminAuthShell } from '@/ui/admin/auth/components';
 import { textByLocale } from '@/ui/admin/auth/lib';
 
 export function AdminRegisterPage(): React.ReactNode {
@@ -62,7 +63,11 @@ export function AdminRegisterPage(): React.ReactNode {
         password,
         email: normalizedEmail || undefined,
       };
-      await api.post<ApiResponse<RegisterResponseData>>('/register', payload);
+      await api.post<ApiResponse<RegisterResponseData>>(
+        '/register',
+        payload,
+        SILENT_UI_ERROR_REQUEST_CONFIG,
+      );
       setSuccess(t('auth.register.successRedirect'));
       redirectTimerRef.current = window.setTimeout(() => navigate('/admin/login', { replace: true }), 900);
     } catch (errorValue) {
@@ -77,7 +82,7 @@ export function AdminRegisterPage(): React.ReactNode {
       panelTitle={t('auth.register.title')}
       panelDescription={textByLocale(
         locale,
-        '创建后台账号后即可统一管理数据、权限与告警信息。',
+        '创建后台账号后，即可统一管理数据、权限与告警信息。',
         'Create an account to manage data, permissions, and alerts in one place.',
       )}
       backLabel={t('auth.backToScreen')}
@@ -105,7 +110,11 @@ export function AdminRegisterPage(): React.ReactNode {
             className="h-12 rounded-xl border-slate-200/90 bg-white/75 px-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.85)] transition-all focus-visible:bg-white"
             placeholder={t('auth.login.usernamePlaceholder')}
             value={username}
-            onChange={(event) => setUsername(event.target.value)}
+            onChange={(event) => {
+              setUsername(event.target.value);
+              if (error) setError(null);
+              if (success) setSuccess(null);
+            }}
           />
         </div>
 
@@ -120,7 +129,11 @@ export function AdminRegisterPage(): React.ReactNode {
             placeholder="m@example.com"
             type="email"
             value={email}
-            onChange={(event) => setEmail(event.target.value)}
+            onChange={(event) => {
+              setEmail(event.target.value);
+              if (error) setError(null);
+              if (success) setSuccess(null);
+            }}
           />
         </div>
 
@@ -136,7 +149,11 @@ export function AdminRegisterPage(): React.ReactNode {
               placeholder={t('auth.error.passwordMin', { min: 6 })}
               type="password"
               value={password}
-              onChange={(event) => setPassword(event.target.value)}
+              onChange={(event) => {
+                setPassword(event.target.value);
+                if (error) setError(null);
+                if (success) setSuccess(null);
+              }}
             />
           </div>
 
@@ -151,14 +168,18 @@ export function AdminRegisterPage(): React.ReactNode {
               placeholder={t('auth.register.confirmPasswordPlaceholder')}
               type="password"
               value={confirmPassword}
-              onChange={(event) => setConfirmPassword(event.target.value)}
+              onChange={(event) => {
+                setConfirmPassword(event.target.value);
+                if (error) setError(null);
+                if (success) setSuccess(null);
+              }}
             />
           </div>
         </div>
 
-        <div className="min-h-5">
-          {error ? <p aria-live="polite" className="text-destructive text-sm">{error}</p> : null}
-          {success ? <p aria-live="polite" className="text-sm text-emerald-600">{success}</p> : null}
+        <div className="grid gap-3">
+          <AdminAuthFeedback tone="error" message={error} />
+          <AdminAuthFeedback tone="success" message={success} />
         </div>
 
         <Button

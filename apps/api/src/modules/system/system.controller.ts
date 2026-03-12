@@ -7,47 +7,42 @@ import { Roles } from '../../shared/authz/roles.decorator';
 import { RolesGuard } from '../../shared/authz/roles.guard';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
-import { SystemRuntimeService } from './system-runtime.service';
+import { UpdateSystemConfigDto } from './dto/update-system-config.dto';
+import { SystemService } from './system.service';
 
 @ApiTags('admin-system')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
 @Controller('admin/system')
 export class SystemController {
-  constructor(private readonly runtime: SystemRuntimeService) {}
+  constructor(private readonly system: SystemService) {}
 
   @Roles('admin', 'operator', 'user')
   @Permissions('system.view')
   @ApiOperation({ summary: 'Get system config (admin)' })
   @Get('config')
-  getConfig() {
-    return {
-      pollingInterval: this.runtime.getPollingInterval(),
-    };
+  async getConfig(): Promise<{ pollingInterval: number }> {
+    return this.system.getConfig();
   }
 
   @Roles('admin')
   @Permissions('system.update')
   @ApiOperation({ summary: 'Update system runtime config' })
   @Post('config')
-  setConfig(@Body() dto: { pollingInterval: number }) {
-    if (typeof dto.pollingInterval === 'number' && dto.pollingInterval >= 5000) {
-      this.runtime.setPollingInterval(dto.pollingInterval);
-    }
-    return { ok: true, pollingInterval: this.runtime.getPollingInterval() };
+  async setConfig(@Body() dto: UpdateSystemConfigDto): Promise<{ ok: true; pollingInterval: number }> {
+    const config = await this.system.setPollingInterval(dto.pollingInterval);
+    return { ok: true, pollingInterval: config.pollingInterval };
   }
 }
 
 @ApiTags('system')
 @Controller('system')
 export class SystemPublicController {
-  constructor(private readonly runtime: SystemRuntimeService) {}
+  constructor(private readonly system: SystemService) {}
 
   @ApiOperation({ summary: 'Get system runtime config (public)' })
   @Get('config')
-  getPublicConfig() {
-    return {
-      pollingInterval: this.runtime.getPollingInterval(),
-    };
+  async getPublicConfig(): Promise<{ pollingInterval: number }> {
+    return this.system.getConfig();
   }
 }

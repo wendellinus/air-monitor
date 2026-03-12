@@ -4,6 +4,7 @@ export type NoticeItem = {
   id: number;
   title: string;
   content?: string;
+  createdByName?: string;
   startTime: string;
   endTime: string;
   status: string;
@@ -16,4 +17,3 @@ export type NoticeItem = {
 };
 
 export type NoticeAdminListData = PageResult<NoticeItem>;
-

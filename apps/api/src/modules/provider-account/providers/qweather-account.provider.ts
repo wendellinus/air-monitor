@@ -174,7 +174,7 @@ export class QweatherAccountProvider implements ProviderAccountSource {
     };
     const normalized = normalizeProviderNumbers(merged);
     const fallbackRequestCount = extractQweatherRequestCount(stats);
-    const requestCount = normalized.requestCount ?? fallbackRequestCount;
+    const requestCount = fallbackRequestCount ?? normalized.requestCount;
     const quotaUsed = normalized.quotaUsed ?? requestCount;
     const usageRate =
       normalized.usageRate === null && normalized.quotaLimit && normalized.quotaLimit > 0 && quotaUsed !== null
@@ -182,17 +182,17 @@ export class QweatherAccountProvider implements ProviderAccountSource {
         : normalized.usageRate;
 
     const requestCountMeta =
-      normalized.requestCount !== null
+      fallbackRequestCount !== null
         ? {
             scope: 'today' as const,
-            source: 'normalized_fields',
-            note: 'derived from summary/stats recognized fields',
+            source: 'stats.success_errors_hours',
+            note: 'aggregated from stats.success/errors.hours',
           }
-        : fallbackRequestCount !== null
+        : normalized.requestCount !== null
           ? {
               scope: 'today' as const,
-              source: 'stats.success_errors_hours',
-              note: 'aggregated from stats.success/errors.hours',
+              source: 'normalized_fields',
+              note: 'derived from summary/stats recognized fields',
             }
           : null;
 

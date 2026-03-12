@@ -24,7 +24,7 @@ export class PermissionController {
 
   @Get('user/me/permissions')
   async myPermissions(@CurrentUser() user: JwtUser): Promise<MePermissionsData> {
-    const list = await this.permissions.getMyPermissionKeys(user.role);
+    const list = await this.permissions.getMyPermissionKeys(user.userId, user.role);
     return {
       role: user.role,
       permissions: list,

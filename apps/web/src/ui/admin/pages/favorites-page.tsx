@@ -12,13 +12,19 @@ import {
 } from '@/ui/admin/favorites/components';
 import { useAdminFavorites } from '@/ui/admin/favorites/hooks';
 import { useI18n } from '@/shared/i18n';
+import { useAdminSessionStore } from '@/ui/admin/stores/admin-session-store';
+
+function textByLocale(locale: string, zh: string, en: string): string {
+  return locale.startsWith('zh') ? zh : en;
+}
 
 export function AdminFavoritesPage(): React.ReactNode {
   const { locale, t } = useI18n();
   const { hasPermission } = useAdminAccess();
+  const me = useAdminSessionStore((state) => state.me);
   const {
+    mode,
     items,
-    total,
     totalPages,
     page,
     keyword,
@@ -26,14 +32,17 @@ export function AdminFavoritesPage(): React.ReactNode {
     isInitialLoading,
     isRefreshing,
     removingKey,
+    supportsSearch,
+    supportsPagination,
     setPage,
     setInputValue,
     handleSearch,
     clearSearch,
     refresh,
     removeFavorite,
-  } = useAdminFavorites({ t });
+  } = useAdminFavorites({ t, me });
   const refreshAction = useRateLimitedAction(() => refresh(), { cooldownMs: 800 });
+  const canRemove = mode === 'self' || hasPermission('favorites.delete');
 
   if (!hasPermission('favorites.view')) {
     return (
@@ -50,46 +59,72 @@ export function AdminFavoritesPage(): React.ReactNode {
   return (
     <PageShell
       title={t('admin.favorites.title')}
-      description={t('admin.favorites.desc')}
+      description={
+        mode === 'admin'
+          ? t('admin.favorites.desc')
+          : textByLocale(locale, '查看并维护你自己的收藏城市。', 'View and manage your own favorite cities.')
+      }
       fitHeight
       bodyClassName="min-h-0"
     >
       <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden">
-        <FavoritesToolbar
-          t={t}
-          inputValue={inputValue}
-          keyword={keyword}
-          isRefreshing={isRefreshing}
-          isInitialLoading={isInitialLoading}
-          refreshLocked={refreshAction.locked}
-          onInputChange={setInputValue}
-          onSearch={handleSearch}
-          onClear={clearSearch}
-          onRefresh={refreshAction.run}
-        />
+        {supportsSearch ? (
+          <FavoritesToolbar
+            t={t}
+            inputValue={inputValue}
+            keyword={keyword}
+            isRefreshing={isRefreshing}
+            isInitialLoading={isInitialLoading}
+            refreshLocked={refreshAction.locked}
+            onInputChange={setInputValue}
+            onSearch={handleSearch}
+            onClear={clearSearch}
+            onRefresh={refreshAction.run}
+          />
+        ) : (
+          <div className="flex items-center justify-end">
+            <FavoritesToolbar
+              t={t}
+              inputValue={inputValue}
+              keyword={keyword}
+              isRefreshing={isRefreshing}
+              isInitialLoading={isInitialLoading}
+              refreshLocked={refreshAction.locked}
+              compact
+              onInputChange={setInputValue}
+              onSearch={handleSearch}
+              onClear={clearSearch}
+              onRefresh={refreshAction.run}
+            />
+          </div>
+        )}
 
         <div className="min-h-0 flex-1 overflow-hidden">
           <FavoritesTableCard
             t={t}
             locale={locale}
+            mode={mode}
             isInitialLoading={isInitialLoading}
             items={items}
             removingKey={removingKey}
+            canRemove={canRemove}
             className="h-full"
             onRemove={(item) => void removeFavorite(item)}
           />
         </div>
 
-        <div className="shrink-0">
-          <FavoritesPagination
-            t={t}
-            page={page}
-            totalPages={totalPages}
-            isRefreshing={isRefreshing}
-            onPrevPage={() => setPage((current) => current - 1)}
-            onNextPage={() => setPage((current) => current + 1)}
-          />
-        </div>
+        {supportsPagination ? (
+          <div className="shrink-0">
+            <FavoritesPagination
+              t={t}
+              page={page}
+              totalPages={totalPages}
+              isRefreshing={isRefreshing}
+              onPrevPage={() => setPage((current) => current - 1)}
+              onNextPage={() => setPage((current) => current + 1)}
+            />
+          </div>
+        ) : null}
       </div>
     </PageShell>
   );

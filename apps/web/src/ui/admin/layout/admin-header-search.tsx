@@ -93,7 +93,7 @@ type SearchOption = {
 export function AdminHeaderSearch(): React.ReactNode {
   const navigate = useNavigate();
   const { locale } = useI18n();
-  const { hasPermission } = useAdminAccess();
+  const { canAccessPath } = useAdminAccess();
 
   const rootRef = React.useRef<HTMLDivElement | null>(null);
   const inputRef = React.useRef<HTMLInputElement | null>(null);
@@ -104,7 +104,7 @@ export function AdminHeaderSearch(): React.ReactNode {
 
   const options = React.useMemo<SearchOption[]>(() => {
     const keyword = query.trim().toLowerCase();
-    const base = SEARCH_ITEMS.filter((item) => hasPermission(item.permissionKey)).map((item) => ({
+    const base = SEARCH_ITEMS.filter((item) => canAccessPath(item.to)).map((item) => ({
       id: item.id,
       to: item.to,
       title: item.getTitle(locale),
@@ -120,7 +120,7 @@ export function AdminHeaderSearch(): React.ReactNode {
         (!locale.startsWith('zh') && item.to.toLowerCase().includes(keyword))
       );
     });
-  }, [hasPermission, locale, query]);
+  }, [canAccessPath, locale, query]);
 
   React.useEffect(() => {
     if (options.length === 0) {

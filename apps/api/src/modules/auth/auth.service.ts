@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from 'crypto';
 
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
 import type Redis from 'ioredis';
@@ -27,6 +27,8 @@ function sha256(s: string): string {
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly env: EnvService,
@@ -99,8 +101,11 @@ export class AuthService {
       where: { username, deletedAt: null },
       select: { id: true, username: true, passwordHash: true, email: true, isActive: true, role: true, tokenInvalidBefore: true, tokenVersion: true },
     });
-    if (!user || !user.isActive) {
+    if (!user) {
       throw new AppError(ErrorCodes.Unauthorized, '用户名或密码错误');
+    }
+    if (!user.isActive) {
+      throw new AppError(ErrorCodes.Unauthorized, '账号已禁用，请联系管理员');
     }
     if (user.tokenInvalidBefore) {
       // User might have been force-logged-out by admin operations.
@@ -152,7 +157,7 @@ export class AuthService {
       throw new AppError(ErrorCodes.Unauthorized, '账号不存在或已删除');
     }
     if (!stored.user.isActive) {
-      throw new AppError(ErrorCodes.Unauthorized, '账号已禁用');
+      throw new AppError(ErrorCodes.Unauthorized, '账号已禁用，请联系管理员');
     }
     if (payload.ver !== stored.user.tokenVersion) {
       throw new AppError(ErrorCodes.Unauthorized, '登录已失效，请重新登录');
@@ -192,7 +197,14 @@ export class AuthService {
     const decoded = this.jwt.decode(accessToken) as { exp?: number; jti?: string } | null;
     if (decoded?.exp && decoded?.jti) {
       const ttlSec = Math.max(1, decoded.exp - Math.floor(Date.now() / 1000));
-      await this.redis.set(`jwt:blacklist:jti:${decoded.jti}`, '1', 'EX', ttlSec);
+      try {
+        await this.redis.set(`jwt:blacklist:jti:${decoded.jti}`, '1', 'EX', ttlSec);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        this.logger.warn(
+          `Redis blacklist write failed during logout for userId=${user.userId}, jti=${decoded.jti}. Access token may remain valid until expiry. ${message}`,
+        );
+      }
     }
 
     // Revoke all refresh tokens for the user.

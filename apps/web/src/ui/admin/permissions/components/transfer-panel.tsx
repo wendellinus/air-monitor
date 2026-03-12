@@ -19,6 +19,7 @@ type TransferPanelProps = {
   checked: Set<string>;
   checkedCount: number;
   onToggle: (key: string, checked: boolean) => void;
+  disabled?: boolean;
   side?: 'left' | 'right';
 };
 
@@ -28,7 +29,7 @@ export function TransferPanel(props: TransferPanelProps): React.ReactNode {
       <div className="border-b border-slate-200/80 bg-slate-50/60 px-3 py-3">
         <div className="mb-3 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
-            <Tags className="h-4 w-4 text-slate-500" />
+            <Tags className="h-4 w-4 text-slate-500" aria-hidden="true" />
             <h3 className="text-sm font-semibold text-slate-800">{props.title}</h3>
           </div>
           <div className="flex items-center gap-1.5">
@@ -40,8 +41,14 @@ export function TransferPanel(props: TransferPanelProps): React.ReactNode {
           </div>
         </div>
         <div className="relative">
-          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+          <Search
+            className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400"
+            aria-hidden="true"
+          />
           <Input
+            aria-label={props.title}
+            autoComplete="off"
+            spellCheck={false}
             value={props.query}
             onChange={(event) => props.onQueryChange(event.target.value)}
             placeholder={props.searchPlaceholder}
@@ -61,10 +68,12 @@ export function TransferPanel(props: TransferPanelProps): React.ReactNode {
                 <button
                   type="button"
                   key={item.key}
+                  disabled={props.disabled}
                   onClick={() => props.onToggle(item.key, !isChecked)}
                   className={cn(
                     'group flex w-full items-start gap-2 rounded-lg border px-2.5 py-2.5 text-left transition-all',
                     'hover:border-slate-300 hover:bg-slate-50/90',
+                    props.disabled ? 'cursor-not-allowed opacity-70' : undefined,
                     isChecked
                       ? 'border-blue-200 bg-blue-50/60 shadow-[0_0_0_1px_rgba(59,130,246,0.12)]'
                       : 'border-slate-200 bg-white',
@@ -72,6 +81,7 @@ export function TransferPanel(props: TransferPanelProps): React.ReactNode {
                 >
                   <Checkbox
                     checked={isChecked}
+                    disabled={props.disabled}
                     onCheckedChange={(value) => props.onToggle(item.key, Boolean(value))}
                     onClick={(event) => event.stopPropagation()}
                     className="mt-0.5"

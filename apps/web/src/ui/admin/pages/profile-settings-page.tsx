@@ -27,7 +27,7 @@ export function AdminProfileSettingsPage(): React.ReactNode {
         '维护账户基础资料、头像与个性化引导配置。',
         'Manage profile info, avatar, and onboarding preferences.',
       )}
-      bodyClassName="min-h-0 overflow-auto pr-1 [scrollbar-gutter:stable]"
+      bodyClassName="min-h-0 overflow-auto pr-1"
     >
       <div className="space-y-4 pb-6 pt-1">
         {loading ? (

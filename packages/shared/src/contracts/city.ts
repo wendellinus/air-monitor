@@ -1,3 +1,5 @@
+import type { PageResult } from '../pagination';
+
 export type SearchCityQuery = {
   keyword: string;
 };
@@ -17,3 +19,4 @@ export type CityItem = {
   country: string;
 };
 
+export type AdminCityListData = PageResult<CityItem>;

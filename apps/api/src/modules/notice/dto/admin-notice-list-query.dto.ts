@@ -1,9 +1,7 @@
 import { Type } from 'class-transformer';
 import { IsDate, IsIn, IsInt, IsOptional, Max, Min } from 'class-validator';
 
-import { NoticeStatus } from '../notice.constants';
-
-const StatusValues = [NoticeStatus.Draft, NoticeStatus.Published, NoticeStatus.Revoked] as const;
+const StatusValues = ['active', 'pending', 'revoked', 'expired'] as const;
 
 export class AdminNoticeListQueryDto {
   @Type(() => Number)

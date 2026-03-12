@@ -45,6 +45,30 @@ function describeAxiosError(error: unknown): string {
   return parts.join(' | ');
 }
 
+async function safeRedisGet(redis: Redis, key: string): Promise<string | null> {
+  try {
+    return await redis.get(key);
+  } catch {
+    return null;
+  }
+}
+
+async function safeRedisSet(redis: Redis, key: string, value: string, ttlSec: number): Promise<void> {
+  try {
+    await redis.set(key, value, 'EX', ttlSec);
+  } catch {
+    // Cache failures should not block upstream requests.
+  }
+}
+
+async function safeRedisDel(redis: Redis, key: string): Promise<void> {
+  try {
+    await redis.del(key);
+  } catch {
+    // Best-effort cleanup only.
+  }
+}
+
 export interface GeoProvider {
   fetchGeo(keyword: string): Promise<QweatherGeoCity[]>;
   getTopCities(rangeType: QweatherTopCityRange, number: number): Promise<QweatherGeoCity[]>;
@@ -74,7 +98,7 @@ class QweatherGeoProvider implements GeoProvider {
 
   async fetchGeo(keyword: string): Promise<QweatherGeoCity[]> {
     const cacheKey = `qweather:geo:${keyword}`;
-    const cached = await this.redis.get(cacheKey);
+    const cached = await safeRedisGet(this.redis, cacheKey);
     if (cached) return JSON.parse(cached) as QweatherGeoCity[];
 
     let data: { code?: string; location?: Array<Record<string, unknown>> };
@@ -90,7 +114,7 @@ class QweatherGeoProvider implements GeoProvider {
       if (axios.isAxiosError(e)) {
         const status = e.response?.status;
         if (status === 400) {
-          await this.redis.set(cacheKey, JSON.stringify([]), 'EX', 60 * 2);
+          await safeRedisSet(this.redis, cacheKey, JSON.stringify([]), 60 * 2);
           return [];
         }
         if (status === 401 || status === 403) {
@@ -109,7 +133,7 @@ class QweatherGeoProvider implements GeoProvider {
     // QWeather returns "204" for "no data". Treat it as an empty result so the UI can
     // show a "no valid address/city" hint (e.g. when clicking sea) instead of a hard error.
     if (data.code === '204') {
-      await this.redis.set(cacheKey, JSON.stringify([]), 'EX', 60 * 10);
+      await safeRedisSet(this.redis, cacheKey, JSON.stringify([]), 60 * 10);
       return [];
     }
 
@@ -127,7 +151,7 @@ class QweatherGeoProvider implements GeoProvider {
       country: String(x['country'] ?? ''),
     }));
 
-    await this.redis.set(cacheKey, JSON.stringify(cities), 'EX', 60 * 10);
+    await safeRedisSet(this.redis, cacheKey, JSON.stringify(cities), 60 * 10);
     return cities;
   }
 
@@ -135,7 +159,7 @@ class QweatherGeoProvider implements GeoProvider {
     const rt = rangeType || 'world';
     const n = number > 0 ? number : 10;
     const cacheKey = `qweather:geo:top:${rt}:${n}`;
-    const cached = await this.redis.get(cacheKey);
+    const cached = await safeRedisGet(this.redis, cacheKey);
     if (cached) return JSON.parse(cached) as QweatherGeoCity[];
 
     const data = await this.client.get<{
@@ -157,7 +181,7 @@ class QweatherGeoProvider implements GeoProvider {
       country: String(x['country'] ?? ''),
     }));
 
-    await this.redis.set(cacheKey, JSON.stringify(cities), 'EX', 60 * 60);
+    await safeRedisSet(this.redis, cacheKey, JSON.stringify(cities), 60 * 60);
     return cities;
   }
 }
@@ -198,13 +222,13 @@ class QweatherAirProvider implements AirProvider {
 
   async fetchRealtime(lat: string, lon: string): Promise<QweatherAirRealtime> {
     const cacheKey = `qweather:air:realtime:${lat}:${lon}`;
-    const cached = await this.redis.get(cacheKey);
+    const cached = await safeRedisGet(this.redis, cacheKey);
     if (cached) {
       const parsed = JSON.parse(cached) as unknown;
       if (typeof parsed === 'object' && parsed && 'pubTime' in (parsed as Record<string, unknown>)) {
         const r = parsed as QweatherAirRealtime;
         if (!this.isEmptyRealtime(r)) return r;
-        await this.redis.del(cacheKey);
+        await safeRedisDel(this.redis, cacheKey);
       }
     }
 
@@ -214,7 +238,7 @@ class QweatherAirProvider implements AirProvider {
         ? await this.client.get<Record<string, unknown>>('/v7/air/now', { location: `${lon},${lat}` })
         : await this.client.get<Record<string, unknown>>(`/airquality/v1/current/${lat}/${lon}`);
     const now = this.normalizeRealtime(data);
-    await this.redis.set(cacheKey, JSON.stringify(now), 'EX', 60 * 45);
+    await safeRedisSet(this.redis, cacheKey, JSON.stringify(now), 60 * 45);
     return now;
   }
 
@@ -224,13 +248,13 @@ class QweatherAirProvider implements AirProvider {
     if (this.client.getAuthMode() === 'apiKey') return [];
 
     const cacheKey = `qweather:air:hourly:${lat}:${lon}`;
-    const cached = await this.redis.get(cacheKey);
+    const cached = await safeRedisGet(this.redis, cacheKey);
     if (cached) {
       const parsed = JSON.parse(cached) as unknown;
       if (Array.isArray(parsed)) {
         if (parsed.length > 0) return parsed as Array<Record<string, unknown>>;
       }
-      await this.redis.del(cacheKey);
+      await safeRedisDel(this.redis, cacheKey);
     }
 
     const data = await this.client.get<Record<string, unknown>>(`/airquality/v1/hourly/${lat}/${lon}`);
@@ -257,17 +281,17 @@ class QweatherAirProvider implements AirProvider {
       .map((x) => normalizeQweatherAirTimelineItem(x))
       .filter((x): x is Record<string, unknown> => x !== null);
 
-    await this.redis.set(cacheKey, JSON.stringify(list), 'EX', 60 * 45);
+    await safeRedisSet(this.redis, cacheKey, JSON.stringify(list), 60 * 45);
     return list;
   }
 
   async fetchDaily(lat: string, lon: string): Promise<Array<Record<string, unknown>>> {
     const cacheKey = `qweather:air:daily:${lat}:${lon}`;
-    const cached = await this.redis.get(cacheKey);
+    const cached = await safeRedisGet(this.redis, cacheKey);
     if (cached) {
       const parsed = JSON.parse(cached) as unknown;
       if (Array.isArray(parsed)) return parsed as Array<Record<string, unknown>>;
-      await this.redis.del(cacheKey);
+      await safeRedisDel(this.redis, cacheKey);
     }
 
     const mode = this.client.getAuthMode();
@@ -277,7 +301,7 @@ class QweatherAirProvider implements AirProvider {
         : await this.client.get<Record<string, unknown>>(`/airquality/v1/daily/${lat}/${lon}`);
     this.assertOk(data, 'Air Daily');
     const list = (data['daily'] as Array<Record<string, unknown>> | undefined) ?? [];
-    await this.redis.set(cacheKey, JSON.stringify(list), 'EX', 60 * 60 * 10);
+    await safeRedisSet(this.redis, cacheKey, JSON.stringify(list), 60 * 60 * 10);
     return list;
   }
 }
@@ -291,11 +315,11 @@ class QweatherAlertProvider implements AlertProvider {
 
   async fetchWeatherAlert(lat: string, lon: string): Promise<QweatherWeatherAlert> {
     const cacheKey = `qweather:alert:${lat}:${lon}`;
-    const cached = await this.redis.get(cacheKey);
+    const cached = await safeRedisGet(this.redis, cacheKey);
     if (cached) return JSON.parse(cached) as QweatherWeatherAlert;
 
     const data = await this.client.get<Record<string, unknown>>(`/weatheralert/v1/current/${lat}/${lon}`);
-    await this.redis.set(cacheKey, JSON.stringify(data), 'EX', 60 * 10);
+    await safeRedisSet(this.redis, cacheKey, JSON.stringify(data), 60 * 10);
 
     const zeroResult = Boolean((data['metadata'] as Record<string, unknown> | undefined)?.['zeroResult']);
     const alerts = (data['alerts'] as Array<Record<string, unknown>> | undefined) ?? [];

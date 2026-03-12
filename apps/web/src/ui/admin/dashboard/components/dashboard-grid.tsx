@@ -125,10 +125,7 @@ export function DashboardGrid(props: DashboardGridProps): React.ReactNode {
   );
 
   return (
-    <div
-      ref={props.scrollViewportRef}
-      className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden pb-10 pr-2 pt-4 [scrollbar-gutter:stable] [scroll-padding-bottom:2rem]"
-    >
+    <div className="min-h-0">
       {props.layoutLoading ? (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {Array.from({ length: 6 }).map((_, index) => (

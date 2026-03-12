@@ -1,18 +1,15 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 
 import { useRateLimitedAction } from '@/hooks/use-rate-limited-action';
 import { PageShell } from '@/ui/admin/components/page-shell';
-import {
-  ResetPasswordDialog,
-  UsersPagination,
-  UsersTableCard,
-  UsersToolbar,
-} from '@/ui/admin/users/components';
+import { UsersPagination, UsersTableCard, UsersToolbar } from '@/ui/admin/users/components';
 import { useAdminUsers } from '@/ui/admin/users/hooks';
 import { useI18n } from '@/shared/i18n';
 
 export function AdminUsersPage(): React.ReactNode {
   const { t, locale } = useI18n();
+  const navigate = useNavigate();
   const {
     pageSize,
     users,
@@ -27,25 +24,16 @@ export function AdminUsersPage(): React.ReactNode {
     createdTo,
     isInitialLoading,
     isRefreshing,
-    resetTarget,
-    newPassword,
-    resetting,
     setPage,
     setInputValue,
     setRoleFilter,
     setStatusFilter,
     setCreatedFrom,
     setCreatedTo,
-    setNewPassword,
     handleSearch,
     clearSearch,
     clearFilters,
     refresh,
-    toggleActive,
-    setRole,
-    openResetDialog,
-    closeResetDialog,
-    submitResetPassword,
   } = useAdminUsers({ t });
   const refreshAction = useRateLimitedAction(() => refresh(), { cooldownMs: 800 });
 
@@ -99,9 +87,8 @@ export function AdminUsersPage(): React.ReactNode {
             isInitialLoading={isInitialLoading}
             pageSize={pageSize}
             className="h-full"
-            onToggleActive={(user) => void toggleActive(user)}
-            onSetRole={(user, role) => void setRole(user, role)}
-            onOpenResetDialog={openResetDialog}
+            onViewDetail={(user) => navigate(`/admin/users/${user.id}`)}
+            onEditDetail={(user) => navigate(`/admin/users/${user.id}?mode=edit`)}
           />
         </div>
 
@@ -116,16 +103,6 @@ export function AdminUsersPage(): React.ReactNode {
           />
         </div>
       </div>
-
-      <ResetPasswordDialog
-        t={t}
-        target={resetTarget}
-        newPassword={newPassword}
-        resetting={resetting}
-        onPasswordChange={setNewPassword}
-        onClose={closeResetDialog}
-        onConfirm={() => void submitResetPassword()}
-      />
     </PageShell>
   );
 }

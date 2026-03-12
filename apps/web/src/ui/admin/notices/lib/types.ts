@@ -3,6 +3,7 @@ import type { NoticeAdminListData, NoticeItem } from '@air-monitor/shared';
 export type AdminNoticeItem = NoticeItem;
 export type AdminNoticeListData = NoticeAdminListData;
 export type TranslateFn = (key: string, params?: Record<string, string | number>) => string;
+export type NoticeFilterStatus = 'all' | 'active' | 'pending' | 'revoked' | 'expired';
 
 export type CreateNoticeForm = {
   title: string;

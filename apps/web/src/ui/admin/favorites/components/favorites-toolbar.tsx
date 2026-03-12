@@ -13,6 +13,7 @@ type FavoritesToolbarProps = {
   isRefreshing: boolean;
   isInitialLoading: boolean;
   refreshLocked: boolean;
+  compact?: boolean;
   onInputChange: (value: string) => void;
   onSearch: () => void;
   onClear: () => void;
@@ -20,6 +21,17 @@ type FavoritesToolbarProps = {
 };
 
 export function FavoritesToolbar(props: FavoritesToolbarProps): React.ReactNode {
+  if (props.compact) {
+    return (
+      <RefreshIconButton
+        label={props.t('admin.common.refresh')}
+        onClick={props.onRefresh}
+        loading={props.isRefreshing || props.refreshLocked}
+        disabled={props.isRefreshing || props.isInitialLoading || props.refreshLocked}
+      />
+    );
+  }
+
   return (
     <div className="flex flex-wrap items-center gap-2">
       <div className="relative max-w-sm flex-1">

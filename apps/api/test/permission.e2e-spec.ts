@@ -83,4 +83,124 @@ describe('Permission (e2e)', () => {
       .set('Authorization', `Bearer ${operatorToken}`);
     expect(operatorReadTree.body.code).toBe(40100);
   });
+
+  it('lets user role access self favorites but not admin favorites management', async () => {
+    const username = `perm_usr_${rand8()}`.slice(0, 20);
+    const password = 'user12345';
+    const passwordHash = await bcrypt.hash(password, 10);
+
+    const user = await t.prisma.user.create({
+      data: { username, passwordHash, isActive: true, role: 'user' },
+      select: { id: true },
+    });
+    createdUserIds.push(user.id);
+
+    const login = await request(t.app.getHttpServer())
+      .post('/api/v1/login')
+      .send({ username, password });
+    expect(login.body.code).toBe(0);
+    const token: string = login.body.data.token as string;
+
+    const myPermissions = await request(t.app.getHttpServer())
+      .get('/api/v1/user/me/permissions')
+      .set('Authorization', `Bearer ${token}`);
+    expect(myPermissions.body.code).toBe(0);
+    expect(myPermissions.body.data.permissions).toContain('favorites.view');
+    expect(myPermissions.body.data.permissions).toContain('favorites.delete');
+
+    const adminFavorites = await request(t.app.getHttpServer())
+      .get('/api/v1/admin/users/favorites/cities?page=1&pageSize=10')
+      .set('Authorization', `Bearer ${token}`);
+    expect(adminFavorites.body.code).toBe(40100);
+
+    const selfFavorites = await request(t.app.getHttpServer())
+      .get('/api/v1/user/favorites/cities')
+      .set('Authorization', `Bearer ${token}`);
+    expect(selfFavorites.body.code).toBe(0);
+    expect(Array.isArray(selfFavorites.body.data)).toBe(true);
+  });
+
+  it('supports admin user detail update, per-user permission reduction, and soft delete', async () => {
+    const adminUsername = `usr_adm_${rand8()}`.slice(0, 20);
+    const adminPassword = 'admin123';
+    const adminHash = await bcrypt.hash(adminPassword, 10);
+    const admin = await t.prisma.user.create({
+      data: { username: adminUsername, passwordHash: adminHash, isActive: true, role: 'admin' },
+      select: { id: true },
+    });
+    createdUserIds.push(admin.id);
+
+    const targetUsername = `usr_op_${rand8()}`.slice(0, 20);
+    const targetPassword = 'operator123';
+    const targetHash = await bcrypt.hash(targetPassword, 10);
+    const target = await t.prisma.user.create({
+      data: { username: targetUsername, passwordHash: targetHash, isActive: true, role: 'operator' },
+      select: { id: true },
+    });
+    createdUserIds.push(target.id);
+
+    const loginAdmin = await request(t.app.getHttpServer())
+      .post('/api/v1/login')
+      .send({ username: adminUsername, password: adminPassword });
+    expect(loginAdmin.body.code).toBe(0);
+    const adminToken: string = loginAdmin.body.data.token as string;
+
+    const detailRes = await request(t.app.getHttpServer())
+      .get(`/api/v1/admin/users/${target.id}`)
+      .set('Authorization', `Bearer ${adminToken}`);
+    expect(detailRes.body.code).toBe(0);
+    expect(detailRes.body.data.username).toBe(targetUsername);
+    expect(detailRes.body.data.rolePermissionKeys).toContain('users.profile.update');
+
+    const renamedUsername = `ren_${rand8()}`.slice(0, 20);
+    const updateRes = await request(t.app.getHttpServer())
+      .patch(`/api/v1/admin/users/${target.id}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        username: renamedUsername,
+        isActive: true,
+        deniedPermissionKeys: ['users.profile.update'],
+      });
+    expect(updateRes.body.code).toBe(0);
+    expect(updateRes.body.data.username).toBe(renamedUsername);
+    expect(updateRes.body.data.deniedPermissionKeys).toContain('users.profile.update');
+    expect(updateRes.body.data.effectivePermissionKeys).not.toContain('users.profile.update');
+
+    const loginTarget = await request(t.app.getHttpServer())
+      .post('/api/v1/login')
+      .send({ username: renamedUsername, password: targetPassword });
+    expect(loginTarget.body.code).toBe(0);
+    const targetToken: string = loginTarget.body.data.token as string;
+
+    const myPermissions = await request(t.app.getHttpServer())
+      .get('/api/v1/user/me/permissions')
+      .set('Authorization', `Bearer ${targetToken}`);
+    expect(myPermissions.body.code).toBe(0);
+    expect(myPermissions.body.data.permissions).not.toContain('users.profile.update');
+    expect(myPermissions.body.data.permissions).toContain('users.view');
+
+    const deleteRes = await request(t.app.getHttpServer())
+      .delete(`/api/v1/admin/users/${target.id}`)
+      .set('Authorization', `Bearer ${adminToken}`);
+    expect(deleteRes.body.code).toBe(0);
+
+    const deletedUser = await t.prisma.user.findUnique({
+      where: { id: target.id },
+      select: { deletedAt: true, username: true, isActive: true },
+    });
+    expect(deletedUser?.deletedAt).toBeTruthy();
+    expect(deletedUser?.username).not.toBe(renamedUsername);
+    expect(deletedUser?.isActive).toBe(false);
+
+    const listRes = await request(t.app.getHttpServer())
+      .get(`/api/v1/users/search?page=1&pageSize=20&keyword=${renamedUsername}`)
+      .set('Authorization', `Bearer ${adminToken}`);
+    expect(listRes.body.code).toBe(0);
+    expect(listRes.body.data.list).toHaveLength(0);
+
+    const reloginDeleted = await request(t.app.getHttpServer())
+      .post('/api/v1/login')
+      .send({ username: renamedUsername, password: targetPassword });
+    expect(reloginDeleted.body.code).not.toBe(0);
+  });
 });

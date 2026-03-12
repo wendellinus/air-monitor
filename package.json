@@ -12,6 +12,8 @@
     "dev": "pnpm -r --parallel dev",
     "dev:api": "pnpm --filter @air-monitor/api dev",
     "dev:web": "pnpm --filter @air-monitor/web dev",
+    "dev:infra": "docker compose up -d postgres redis",
+    "dev:infra:down": "docker compose down",
     "build": "pnpm -r --workspace-concurrency=1 build",
     "build:api": "pnpm --filter @air-monitor/shared build && pnpm --filter @air-monitor/api build",
     "build:web": "pnpm --filter @air-monitor/shared build && pnpm --filter @air-monitor/web build",

@@ -2,14 +2,12 @@ import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   getCoreRowModel,
-  getFilteredRowModel,
-  getPaginationRowModel,
   useReactTable,
   type ColumnDef,
-  type ColumnFiltersState,
+  type PaginationState,
   type VisibilityState,
 } from '@tanstack/react-table';
-import type { CityItem } from '@air-monitor/shared';
+import type { AdminCityListData } from '@air-monitor/shared';
 
 import { api } from '@/shared/api';
 import type { ApiResponse } from '@/shared/types';
@@ -24,36 +22,50 @@ type UseAdminCitiesTableResult = {
   table: ReturnType<typeof useReactTable<CityRow>>;
   isLoading: boolean;
   isFetching: boolean;
+  keyword: string;
   refetch: () => Promise<unknown>;
+  setKeyword: React.Dispatch<React.SetStateAction<string>>;
   columnsCount: number;
   columnNameMap: Record<string, string>;
 };
 
 export function useAdminCitiesTable(t: TranslateFn): UseAdminCitiesTableResult {
-  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
   const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({});
+  const [keyword, setKeyword] = React.useState<string>('');
+  const [pagination, setPagination] = React.useState<PaginationState>({
+    pageIndex: 0,
+    pageSize: CITY_TABLE_PAGE_SIZE,
+  });
 
-  const { data: cities, isLoading, isFetching, refetch } = useQuery({
-    queryKey: ['admin-top-cities'],
-    queryFn: async (): Promise<CityItem[]> => {
-      const response = await api.get<ApiResponse<CityItem[]>>('/city/top', {
-        params: { rangeType: 'cn', number: 20 },
+  React.useEffect(() => {
+    setPagination((current) => ({ ...current, pageIndex: 0 }));
+  }, [keyword]);
+
+  const { data, isLoading, isFetching, refetch } = useQuery({
+    queryKey: ['admin-cities', pagination.pageIndex, pagination.pageSize, keyword],
+    queryFn: async (): Promise<AdminCityListData> => {
+      const response = await api.get<ApiResponse<AdminCityListData>>('/city/admin/list', {
+        params: {
+          page: pagination.pageIndex + 1,
+          pageSize: pagination.pageSize,
+          ...(keyword.trim() ? { keyword: keyword.trim() } : {}),
+        },
       });
       return response.data.data;
     },
-    staleTime: 60 * 1000,
+    placeholderData: (previous) => previous,
   });
 
   const rows = React.useMemo<CityRow[]>(
     () =>
-      (cities ?? []).map((city) => ({
+      (data?.list ?? []).map((city) => ({
         country: city.country || '--',
         city: city.name || city.cityId || '--',
         region: formatRegion(city) || '--',
         coordinates: city.lat && city.lon ? `${city.lat}, ${city.lon}` : '--',
         cityId: city.cityId || '--',
       })),
-    [cities],
+    [data],
   );
 
   const columns = React.useMemo<ColumnDef<CityRow>[]>(
@@ -97,22 +109,19 @@ export function useAdminCitiesTable(t: TranslateFn): UseAdminCitiesTableResult {
     [t],
   );
 
+  const totalPages = Math.max(1, Math.ceil((data?.total ?? 0) / pagination.pageSize));
+
   const table = useReactTable({
     data: rows,
     columns,
     getCoreRowModel: getCoreRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
-    onColumnFiltersChange: setColumnFilters,
+    manualPagination: true,
+    pageCount: totalPages,
+    onPaginationChange: setPagination,
     onColumnVisibilityChange: setColumnVisibility,
     state: {
-      columnFilters,
+      pagination,
       columnVisibility,
-    },
-    initialState: {
-      pagination: {
-        pageSize: CITY_TABLE_PAGE_SIZE,
-      },
     },
   });
 
@@ -131,7 +140,9 @@ export function useAdminCitiesTable(t: TranslateFn): UseAdminCitiesTableResult {
     table,
     isLoading,
     isFetching,
+    keyword,
     refetch: () => refetch(),
+    setKeyword,
     columnsCount: columns.length,
     columnNameMap,
   };

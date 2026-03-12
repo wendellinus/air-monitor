@@ -1,5 +1,4 @@
-﻿import React from 'react';
-import * as echarts from 'echarts';
+import React from 'react';
 import { Building2, MapPin } from 'lucide-react';
 
 import type { CityItem, WeatherAlertItem } from '@air-monitor/shared';
@@ -8,11 +7,29 @@ import { type LonLat } from '@/lib/coords';
 import { cn } from '@/lib/utils';
 
 import { getAccessToken } from '@/shared/auth';
-import { buildPollutantOption, buildTrendOption } from './lib/screen-charts';
+import { useSystemPollingInterval } from '@/shared/hooks/use-system-polling-interval';
+import {
+  buildAqiAreaOption,
+  buildAqiBoxplotOption,
+  buildAqiComboOption,
+  buildAqiGaugeOption,
+  buildAqiLineOption,
+  buildAqiRingOption,
+  buildHourlyHeatmapOption,
+  buildPollutantBarOption,
+  buildPollutantPieOption,
+  buildPollutantRadarOption,
+  buildPollutantScatterOption,
+  buildPollutantStackedOption,
+  buildRiskMatrixOption,
+  buildSpatialTrendOption,
+} from './lib/screen-charts';
 import { aqiTone, toNumber } from './lib/screen-utils';
 import { useScreenClock } from './hooks/use-screen-clock';
+import { useScreenCitySnapshots } from './hooks/use-screen-city-snapshots';
 import { useScreenFavorites } from './hooks/use-screen-favorites';
 import { useScreenFullscreen } from './hooks/use-screen-fullscreen';
+import { useScreenHistoryPlayback } from './hooks/use-screen-history-playback';
 import { useScreenLiveData } from './hooks/use-screen-live-data';
 import { useScreenLocation } from './hooks/use-screen-location';
 import { useScreenSearch } from './hooks/use-screen-search';
@@ -22,20 +39,83 @@ import { ScreenBottomDock } from './widgets/screen-bottom-dock';
 import { ScreenFavoritesSheet } from './widgets/screen-favorites-sheet';
 import { ScreenLeftPanel } from './widgets/screen-left-panel';
 import { ScreenMapAlertMarker } from './widgets/screen-map-alert-marker';
-import { ScreenRightPanel } from './widgets/screen-right-panel';
+import {
+  ScreenRightPanel,
+  type ScreenChartOptions,
+  type ScreenCompareSummary,
+  type ScreenRankingItem,
+} from './widgets/screen-right-panel';
 import { ScreenSearchOverlay } from './widgets/screen-search-overlay';
 import { ScreenStage } from './widgets/screen-stage';
 import { ScreenTopBar } from './widgets/screen-top-bar';
+
+type MarkerTone = {
+  shellClassName: string;
+  glowClassName: string;
+  dotClassName: string;
+  iconClassName: string;
+  showPing: boolean;
+  statusLabel: string;
+};
+
+function pickMarkerTone(aqi: number | null, alertCount: number): MarkerTone {
+  if (alertCount > 0) {
+    return {
+      shellClassName: 'border-rose-300/35 bg-rose-500/18 text-rose-100 ring-rose-300/20',
+      glowClassName: 'bg-rose-400/25',
+      dotClassName: 'bg-rose-300',
+      iconClassName: 'text-rose-100',
+      showPing: true,
+      statusLabel: '天气预警',
+    };
+  }
+
+  if ((aqi ?? 0) >= 180) {
+    return {
+      shellClassName: 'border-orange-300/35 bg-orange-500/18 text-orange-100 ring-orange-300/20',
+      glowClassName: 'bg-orange-400/25',
+      dotClassName: 'bg-orange-300',
+      iconClassName: 'text-orange-100',
+      showPing: true,
+      statusLabel: 'AQI 偏高',
+    };
+  }
+
+  if ((aqi ?? 0) >= 120) {
+    return {
+      shellClassName: 'border-amber-300/35 bg-amber-400/18 text-amber-100 ring-amber-300/18',
+      glowClassName: 'bg-amber-300/22',
+      dotClassName: 'bg-amber-200',
+      iconClassName: 'text-amber-100',
+      showPing: false,
+      statusLabel: 'AQI 关注',
+    };
+  }
+
+  return {
+    shellClassName: 'border-cyan-200/18 bg-black/40 text-foreground/86 ring-white/10',
+    glowClassName: 'bg-cyan-200/10',
+    dotClassName: 'bg-cyan-200',
+    iconClassName: 'text-foreground/86',
+    showPing: false,
+    statusLabel: '常规城市',
+  };
+}
 
 export function ScreenPage(): React.ReactNode {
   const [selected, setSelected] = React.useState<CityItem | null>(null);
   const [favoritesOpen, setFavoritesOpen] = React.useState<boolean>(false);
 
   const now = useScreenClock();
+  const { pollingIntervalMs } = useSystemPollingInterval();
   const { isFullscreen, toggleFullscreen } = useScreenFullscreen();
   const canManageFavorites = Boolean(getAccessToken());
   const { picked, setPicked, onMapClick, locateMe } = useScreenLocation({ setSelected });
   const { cities, notices, air, airHourly, alerts } = useScreenLiveData({ selected, setSelected });
+  const citySnapshots = useScreenCitySnapshots({ cities, pollingIntervalMs });
+  const historyPlayback = useScreenHistoryPlayback(airHourly, air);
+  const displayAir = historyPlayback.currentAir;
+
   const {
     favoriteCities,
     favoriteCitySet,
@@ -69,18 +149,37 @@ export function ScreenPage(): React.ReactNode {
     return { lon, lat };
   }, [selected]);
 
-  const trendOption: echarts.EChartsOption = React.useMemo(() => buildTrendOption(airHourly), [airHourly]);
-  const pollutantOption: echarts.EChartsOption = React.useMemo(() => buildPollutantOption(air), [air]);
+  const chartOptions: ScreenChartOptions = React.useMemo(
+    () => ({
+      aqiLine: buildAqiLineOption(airHourly),
+      aqiArea: buildAqiAreaOption(airHourly),
+      aqiCombo: buildAqiComboOption(airHourly),
+      aqiGauge: buildAqiGaugeOption(displayAir),
+      aqiRing: buildAqiRingOption(displayAir),
+      pollutantBar: buildPollutantBarOption(displayAir),
+      pollutantStacked: buildPollutantStackedOption(airHourly),
+      pollutantPie: buildPollutantPieOption(displayAir),
+      pollutantRadar: buildPollutantRadarOption(displayAir),
+      aqiBoxplot: buildAqiBoxplotOption(airHourly),
+      hourlyHeatmap: buildHourlyHeatmapOption(airHourly),
+      pollutantScatter: buildPollutantScatterOption(airHourly),
+      riskMatrix: buildRiskMatrixOption(displayAir, airHourly),
+      spatialTrend: buildSpatialTrendOption(airHourly),
+    }),
+    [airHourly, displayAir],
+  );
 
-  const tone = aqiTone(air?.aqi ?? 0);
+  const tone = aqiTone(displayAir?.aqi ?? 0);
 
   const trimmedSearchKeyword = searchKeyword.trim();
+  const selectedSnapshot = selected ? citySnapshots[selected.cityId] ?? null : null;
+  const selectedAlerts: WeatherAlertItem[] = React.useMemo(() => {
+    if (Array.isArray(selectedSnapshot?.alerts?.alerts)) return selectedSnapshot.alerts.alerts;
+    return Array.isArray(alerts?.alerts) ? alerts.alerts : [];
+  }, [alerts?.alerts, selectedSnapshot?.alerts?.alerts]);
 
-  const selectedAlerts: WeatherAlertItem[] = Array.isArray(alerts?.alerts) ? alerts.alerts : [];
   const primaryAlert = pickPrimaryAlert(selectedAlerts);
-  const showMapAlert = Boolean(
-    selected && selectedCoord && primaryAlert && selectedAlerts.length > 0,
-  );
+  const showMapAlert = Boolean(selected && selectedCoord && primaryAlert && selectedAlerts.length > 0);
   const mapAlertKind = primaryAlert ? getAlertKind(primaryAlert) : 'default';
   const mapAlertColor = primaryAlert ? getAlertAccentColor(primaryAlert) : null;
   const mapAlertToneClassName = (() => {
@@ -108,32 +207,103 @@ export function ScreenPage(): React.ReactNode {
     return markers;
   }, [cities, favoriteCities, selected]);
 
+  const rankingRows = React.useMemo((): ScreenRankingItem[] => {
+    return cities
+      .map((city) => {
+        const snapshot = citySnapshots[city.cityId];
+        return {
+          cityId: city.cityId,
+          name: city.name,
+          aqi: snapshot?.air?.aqi ?? null,
+          alertCount: snapshot?.alerts ? snapshot.alerts.alerts.length : null,
+          primary: snapshot?.air?.primary ?? null,
+        };
+      })
+      .filter((row) => row.aqi !== null);
+  }, [cities, citySnapshots]);
+
+  const cleanestCities = React.useMemo(
+    () => [...rankingRows].sort((a, b) => (a.aqi ?? 999) - (b.aqi ?? 999)).slice(0, 3),
+    [rankingRows],
+  );
+  const rankedByAqi = React.useMemo(
+    () => [...rankingRows].sort((a, b) => (a.aqi ?? 0) - (b.aqi ?? 0)),
+    [rankingRows],
+  );
+  const worstAqiCity = React.useMemo(
+    () => (rankedByAqi.length > 0 ? rankedByAqi[rankedByAqi.length - 1] : null),
+    [rankedByAqi],
+  );
+  const riskiestCities = React.useMemo(
+    () =>
+      [...rankingRows]
+        .sort(
+          (a, b) =>
+            ((b.alertCount ?? -1) - (a.alertCount ?? -1)) || ((b.aqi ?? 0) - (a.aqi ?? 0)),
+        )
+        .slice(0, 3),
+    [rankingRows],
+  );
+  const alertCities = React.useMemo(
+    () =>
+      [...rankingRows]
+        .filter((row) => (row.alertCount ?? 0) > 0)
+        .sort(
+          (a, b) =>
+            ((b.alertCount ?? -1) - (a.alertCount ?? -1)) || ((b.aqi ?? 0) - (a.aqi ?? 0)),
+        )
+        .slice(0, 3),
+    [rankingRows],
+  );
+  const alertedCitiesCount = React.useMemo(
+    () => rankingRows.filter((row) => (row.alertCount ?? 0) > 0).length,
+    [rankingRows],
+  );
+  const currentCompare = React.useMemo<ScreenCompareSummary | null>(
+    () => {
+      if (!selected) return null;
+      return {
+        cityName: selected.name,
+        aqi: displayAir?.aqi ?? null,
+        primary: displayAir?.primary ?? null,
+        alertCount: selectedAlerts.length,
+      };
+    },
+    [displayAir?.aqi, displayAir?.primary, selected, selectedAlerts.length],
+  );
+
   const selectedCityId = selected?.cityId ?? null;
   const renderCityMarker = React.useCallback(
     ({ id, name }: { id: string; name: string }): React.ReactNode => {
       const isSelected = Boolean(selectedCityId && id === selectedCityId);
+      const snapshot = citySnapshots[id];
+      const markerTone = pickMarkerTone(snapshot?.air?.aqi ?? null, snapshot?.alerts?.alerts.length ?? 0);
+
       return (
-        <div className="flex flex-col items-center gap-1">
+        <div className="flex cursor-pointer flex-col items-center gap-1">
           <div
             className={cn(
               'relative grid h-9 w-9 place-items-center rounded-2xl border shadow-[0_10px_28px_rgba(0,0,0,0.55)] ring-1 backdrop-blur-md',
               isSelected
                 ? 'border-primary/28 bg-primary/14 text-primary ring-primary/20'
-                : 'border-white/14 bg-black/40 text-foreground/86 ring-white/10',
+                : markerTone.shellClassName,
             )}
             aria-label={`城市：${name}`}
           >
             <span
               className={cn(
                 'pointer-events-none absolute -inset-2 rounded-[20px] blur-md',
-                isSelected ? 'bg-primary/12' : 'bg-cyan-200/10',
+                isSelected ? 'bg-primary/12' : markerTone.glowClassName,
               )}
             />
+            {!isSelected && markerTone.showPing ? (
+              <span className="pointer-events-none absolute -inset-2 rounded-[18px] animate-ping bg-current/20 opacity-70" />
+            ) : null}
             {isSelected ? (
               <MapPin className="relative h-[18px] w-[18px]" strokeWidth={2.2} aria-hidden="true" />
             ) : (
               <Building2
-                className="relative h-[18px] w-[18px]"
+                className={cn('relative h-[18px] w-[18px]', markerTone.iconClassName)}
                 strokeWidth={2.2}
                 aria-hidden="true"
               />
@@ -142,20 +312,20 @@ export function ScreenPage(): React.ReactNode {
           <div
             className={cn(
               'relative h-2 w-2 rounded-full shadow-[0_10px_26px_rgba(0,0,0,0.55)] ring-1 ring-white/10',
-              isSelected ? 'bg-primary' : 'bg-cyan-200',
+              isSelected ? 'bg-primary' : markerTone.dotClassName,
             )}
           >
             <span
               className={cn(
                 'absolute -inset-2 rounded-full blur-md',
-                isSelected ? 'bg-primary/12' : 'bg-cyan-200/10',
+                isSelected ? 'bg-primary/12' : markerTone.glowClassName,
               )}
             />
           </div>
         </div>
       );
     },
-    [selectedCityId],
+    [citySnapshots, selectedCityId],
   );
 
   const renderPickedMarker = React.useCallback((): React.ReactNode => {
@@ -172,6 +342,15 @@ export function ScreenPage(): React.ReactNode {
     );
   }, []);
 
+  const mergedSelectableCities = React.useMemo(() => {
+    const merged = [...cities, ...favoriteCities, ...(selected ? [selected] : [])];
+    const result = new Map<string, CityItem>();
+    merged.forEach((city) => {
+      result.set(city.cityId, city);
+    });
+    return result;
+  }, [cities, favoriteCities, selected]);
+
   return (
     <div className="relative h-dvh w-full overflow-hidden bg-background text-foreground">
       <div className="absolute inset-0">
@@ -180,7 +359,7 @@ export function ScreenPage(): React.ReactNode {
           markers={mapMarkers}
           renderMarker={renderCityMarker}
           onMarkerClick={(id) => {
-            const found = cities.find((city) => city.cityId === id) ?? null;
+            const found = mergedSelectableCities.get(id) ?? null;
             setPicked(null);
             setSelected(found);
           }}
@@ -218,6 +397,8 @@ export function ScreenPage(): React.ReactNode {
             now={now}
             searchOpen={searchOpen}
             isLoggedIn={canManageFavorites}
+            replayMode={historyPlayback.replayMode}
+            replayLabel={historyPlayback.currentLabel}
             onOpenSearch={openSearch}
           />
 
@@ -243,7 +424,7 @@ export function ScreenPage(): React.ReactNode {
             <div className="absolute inset-0">
               <ScreenLeftPanel
                 selected={selected}
-                air={air}
+                air={displayAir}
                 tone={tone}
                 cities={cities}
                 favoriteCitySet={favoriteCitySet}
@@ -257,7 +438,17 @@ export function ScreenPage(): React.ReactNode {
                 }}
               />
 
-              <ScreenRightPanel trendOption={trendOption} pollutantOption={pollutantOption} />
+              <ScreenRightPanel
+                chartOptions={chartOptions}
+                replayMode={historyPlayback.replayMode}
+                replayLabel={historyPlayback.currentLabel}
+                alertedCitiesCount={alertedCitiesCount}
+                cleanestCities={cleanestCities}
+                riskiestCities={riskiestCities}
+                alertCities={alertCities}
+                currentCompare={currentCompare}
+                worstAqiCity={worstAqiCity}
+              />
             </div>
           </main>
 

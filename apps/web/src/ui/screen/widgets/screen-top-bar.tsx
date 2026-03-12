@@ -3,7 +3,6 @@ import { Search } from 'lucide-react';
 
 import type { NoticeItem } from '@air-monitor/shared';
 
-import { Button } from '@/components/ui/button';
 import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group';
 import { cn } from '@/lib/utils';
 
@@ -12,6 +11,8 @@ type ScreenTopBarProps = {
   now: Date;
   searchOpen: boolean;
   isLoggedIn: boolean;
+  replayMode: boolean;
+  replayLabel: string;
   onOpenSearch: () => void;
 };
 
@@ -23,15 +24,15 @@ type NoticeMarqueeItem = {
 };
 
 const TEXT = {
-  title: '\u7a7a\u6c14\u8d28\u91cf\u76d1\u6d4b',
-  empty: '\u6682\u65e0\u516c\u544a',
-  unnamedNotice: '\u672a\u547d\u540d\u516c\u544a',
-  urgent: '\u7d27\u6025',
-  info: '\u666e\u901a',
-  searchPlaceholder: '\u641c\u7d22\u6570\u636e...',
-  searchAriaLabel: '\u6253\u5f00\u641c\u7d22',
-  admin: '\u7ba1\u7406\u540e\u53f0',
-  login: '\u767b\u5f55\u540e\u53f0',
+  title: '空气质量监测',
+  empty: '暂无公告',
+  unnamedNotice: '未命名公告',
+  urgent: '紧急',
+  info: '普通',
+  searchPlaceholder: '搜索数据...',
+  searchAriaLabel: '打开搜索',
+  admin: '管理后台',
+  login: '登录后台',
 } as const;
 
 function toMarqueeItems(notices: NoticeItem[]): NoticeMarqueeItem[] {
@@ -90,6 +91,17 @@ export function ScreenTopBar(props: ScreenTopBarProps): React.ReactNode {
       </div>
 
       <div className="flex items-center gap-4">
+        <div
+          className={cn(
+            'hidden rounded-full border px-3 py-1 text-xs font-semibold lg:inline-flex',
+            props.replayMode
+              ? 'border-cyan-300/35 bg-cyan-300/12 text-cyan-100'
+              : 'border-white/12 bg-black/18 text-white/70',
+          )}
+        >
+          {props.replayMode ? `回放 ${props.replayLabel}` : '实时监测'}
+        </div>
+
         <InputGroup
           role="button"
           tabIndex={0}
@@ -103,8 +115,7 @@ export function ScreenTopBar(props: ScreenTopBarProps): React.ReactNode {
             }
           }}
           className={cn(
-            'h-9 w-[260px] cursor-pointer bg-black/24 shadow-[0_18px_60px_rgba(0,0,0,0.45)]',
-            'hidden md:flex',
+            'hidden h-9 w-[260px] cursor-pointer bg-black/24 shadow-[0_18px_60px_rgba(0,0,0,0.45)] md:flex',
           )}
         >
           <InputGroupInput
@@ -119,9 +130,12 @@ export function ScreenTopBar(props: ScreenTopBarProps): React.ReactNode {
         </InputGroup>
 
         <div className="text-sm text-muted-foreground">{props.now.toLocaleString()}</div>
-        <Button asChild size="sm" variant="outline">
-          <a href={adminLink}>{adminLabel}</a>
-        </Button>
+        <a
+          href={adminLink}
+          className="inline-flex h-9 items-center rounded-md border border-white/12 px-4 text-sm text-foreground/90 transition-colors hover:bg-white/6"
+        >
+          {adminLabel}
+        </a>
       </div>
     </header>
   );

@@ -63,6 +63,7 @@ export class NoticeService {
       const notice: Omit<NoticeEntity, 'id'> = {
         title: a.headline,
         content,
+        createdByName: '系统同步',
         startTime,
         endTime,
         status: NoticeStatus.Published,
@@ -90,7 +91,7 @@ export class NoticeService {
     return { list, total, page, pageSize };
   }
 
-  async createManualNotice(dto: AdminCreateNoticeDto): Promise<{ id: number }> {
+  async createManualNotice(dto: AdminCreateNoticeDto, actorName: string): Promise<{ id: number }> {
     if (dto.startTime.getTime() >= dto.endTime.getTime()) {
       throw new AppError(ErrorCodes.ParamError, '\u5f00\u59cb\u65f6\u95f4\u5fc5\u987b\u65e9\u4e8e\u7ed3\u675f\u65f6\u95f4');
     }
@@ -98,6 +99,7 @@ export class NoticeService {
     const entity: Omit<NoticeEntity, 'id'> = {
       title: dto.title,
       content: dto.content,
+      createdByName: actorName,
       startTime: dto.startTime,
       endTime: dto.endTime,
       // Manual notices are time-driven: pending/active/expired is derived from start/end time.

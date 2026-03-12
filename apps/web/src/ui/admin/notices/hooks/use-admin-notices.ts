@@ -2,11 +2,13 @@ import React from 'react';
 import { toast } from 'sonner';
 
 import { api } from '@/shared/api';
+import { isCanceledRequestError } from '@/shared/http/error-normalizer';
 import type { ApiResponse } from '@/shared/types';
 import type {
   AdminNoticeItem,
   AdminNoticeListData,
   CreateNoticeForm,
+  NoticeFilterStatus,
   TranslateFn,
 } from '@/ui/admin/notices/lib/types';
 import { getDefaultCreateNoticeForm } from '@/ui/admin/notices/lib/types';
@@ -29,12 +31,14 @@ type UseAdminNoticesResult = {
   createOpen: boolean;
   submitting: boolean;
   publishingId: number | string | null;
+  statusFilter: NoticeFilterStatus;
   effectiveFrom: string;
   effectiveTo: string;
   form: CreateNoticeForm;
   setPage: React.Dispatch<React.SetStateAction<number>>;
   setCreateOpen: React.Dispatch<React.SetStateAction<boolean>>;
   setForm: React.Dispatch<React.SetStateAction<CreateNoticeForm>>;
+  setStatusFilter: (value: NoticeFilterStatus) => void;
   setEffectiveFrom: (value: string) => void;
   setEffectiveTo: (value: string) => void;
   clearEffectiveFilters: () => void;
@@ -56,6 +60,7 @@ export function useAdminNotices(input: UseAdminNoticesInput): UseAdminNoticesRes
   const [createOpen, setCreateOpen] = React.useState<boolean>(false);
   const [submitting, setSubmitting] = React.useState<boolean>(false);
   const [publishingId, setPublishingId] = React.useState<number | string | null>(null);
+  const [statusFilter, setStatusFilterState] = React.useState<NoticeFilterStatus>('all');
   const [effectiveFrom, setEffectiveFromState] = React.useState<string>('');
   const [effectiveTo, setEffectiveToState] = React.useState<string>('');
   const [form, setForm] = React.useState<CreateNoticeForm>(getDefaultCreateNoticeForm);
@@ -75,6 +80,7 @@ export function useAdminNotices(input: UseAdminNoticesInput): UseAdminNoticesRes
           params: {
             page: targetPage,
             pageSize: PAGE_SIZE,
+            ...(statusFilter !== 'all' ? { status: statusFilter } : {}),
             ...(effectiveFrom ? { effectiveFrom } : {}),
             ...(effectiveTo ? { effectiveTo } : {}),
           },
@@ -82,6 +88,7 @@ export function useAdminNotices(input: UseAdminNoticesInput): UseAdminNoticesRes
         setNotices(response.data.data.list.map((item) => normalizeAdminNoticeItem(item)));
         setTotal(response.data.data.total);
       } catch (error: unknown) {
+        if (isCanceledRequestError(error)) return;
         toast.error(error instanceof Error ? error.message : t('admin.notices.loadFail'));
       } finally {
         if (mode === 'initial') {
@@ -91,7 +98,7 @@ export function useAdminNotices(input: UseAdminNoticesInput): UseAdminNoticesRes
         }
       }
     },
-    [effectiveFrom, effectiveTo, t],
+    [effectiveFrom, effectiveTo, statusFilter, t],
   );
 
   React.useEffect(() => {
@@ -104,6 +111,11 @@ export function useAdminNotices(input: UseAdminNoticesInput): UseAdminNoticesRes
     await loadNotices(page, 'refresh');
   }, [loadNotices, page]);
 
+  const setStatusFilter = React.useCallback((value: NoticeFilterStatus): void => {
+    setStatusFilterState(value);
+    setPage(1);
+  }, []);
+
   const setEffectiveFrom = React.useCallback((value: string): void => {
     setEffectiveFromState(value);
     setPage(1);
@@ -115,6 +127,7 @@ export function useAdminNotices(input: UseAdminNoticesInput): UseAdminNoticesRes
   }, []);
 
   const clearEffectiveFilters = React.useCallback((): void => {
+    setStatusFilterState('all');
     setEffectiveFromState('');
     setEffectiveToState('');
     setPage(1);
@@ -151,6 +164,7 @@ export function useAdminNotices(input: UseAdminNoticesInput): UseAdminNoticesRes
         );
         toast.success(t('admin.notices.publishSuccess'));
       } catch (error: unknown) {
+        if (isCanceledRequestError(error)) return;
         toast.error(error instanceof Error ? error.message : t('admin.notices.publishFail'));
       } finally {
         setPublishingId(null);
@@ -170,6 +184,7 @@ export function useAdminNotices(input: UseAdminNoticesInput): UseAdminNoticesRes
         );
         toast.success(t('admin.notices.revokeSuccess'));
       } catch (error: unknown) {
+        if (isCanceledRequestError(error)) return;
         toast.error(error instanceof Error ? error.message : t('admin.notices.revokeFail'));
       } finally {
         setPublishingId(null);
@@ -199,6 +214,7 @@ export function useAdminNotices(input: UseAdminNoticesInput): UseAdminNoticesRes
       setPage(1);
       await loadNotices(1, 'refresh');
     } catch (error: unknown) {
+      if (isCanceledRequestError(error)) return;
       toast.error(error instanceof Error ? error.message : t('admin.notices.create.fail'));
     } finally {
       setSubmitting(false);
@@ -216,12 +232,14 @@ export function useAdminNotices(input: UseAdminNoticesInput): UseAdminNoticesRes
     createOpen,
     submitting,
     publishingId,
+    statusFilter,
     effectiveFrom,
     effectiveTo,
     form,
     setPage,
     setCreateOpen,
     setForm,
+    setStatusFilter,
     setEffectiveFrom,
     setEffectiveTo,
     clearEffectiveFilters,

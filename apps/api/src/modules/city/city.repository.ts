@@ -31,6 +31,46 @@ export class CityRepository {
     });
   }
 
+  async listRecent(limit: number): Promise<CityEntity[]> {
+    return this.prisma.city.findMany({
+      orderBy: [{ updatedAt: 'desc' }, { createdAt: 'desc' }],
+      take: limit,
+      select: { cityId: true, name: true, lat: true, lon: true, adm2: true, adm1: true, country: true },
+    });
+  }
+
+  async listAdmin(
+    page: number,
+    pageSize: number,
+    keyword?: string,
+  ): Promise<{ list: CityEntity[]; total: number }> {
+    const normalizedKeyword = keyword?.trim();
+    const where = normalizedKeyword
+      ? {
+          OR: [
+            { name: { contains: normalizedKeyword, mode: 'insensitive' as const } },
+            { adm1: { contains: normalizedKeyword, mode: 'insensitive' as const } },
+            { adm2: { contains: normalizedKeyword, mode: 'insensitive' as const } },
+            { country: { contains: normalizedKeyword, mode: 'insensitive' as const } },
+            { cityId: { contains: normalizedKeyword } },
+          ],
+        }
+      : undefined;
+
+    const [total, list] = await this.prisma.$transaction([
+      this.prisma.city.count({ where }),
+      this.prisma.city.findMany({
+        where,
+        orderBy: { cityId: 'asc' },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+        select: { cityId: true, name: true, lat: true, lon: true, adm2: true, adm1: true, country: true },
+      }),
+    ]);
+
+    return { total, list };
+  }
+
   async upsert(city: CityEntity): Promise<void> {
     await this.prisma.city.upsert({
       where: { cityId: city.cityId },
@@ -54,4 +94,3 @@ export class CityRepository {
     });
   }
 }
-

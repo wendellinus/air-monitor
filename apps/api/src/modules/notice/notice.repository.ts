@@ -9,6 +9,7 @@ export type NoticeEntity = {
   id: number;
   title: string;
   content?: string;
+  createdByName?: string;
   startTime: Date;
   endTime: Date;
   status: string;
@@ -24,6 +25,7 @@ const noticeSelect = {
   id: true,
   title: true,
   content: true,
+  createdByName: true,
   startTime: true,
   endTime: true,
   status: true,
@@ -39,6 +41,7 @@ type NoticeRow = {
   id: number;
   title: string;
   content: string | null;
+  createdByName: string | null;
   startTime: Date;
   endTime: Date;
   status: string;
@@ -65,6 +68,7 @@ export class NoticeRepository {
       id: row.id,
       title: row.title,
       content: row.content ?? undefined,
+      createdByName: row.createdByName ?? undefined,
       startTime: row.startTime,
       endTime: row.endTime,
       status: row.status,
@@ -82,6 +86,7 @@ export class NoticeRepository {
       data: {
         title: n.title,
         content: n.content ?? null,
+        createdByName: n.createdByName ?? null,
         startTime: n.startTime,
         endTime: n.endTime,
         status: n.status,
@@ -100,6 +105,7 @@ export class NoticeRepository {
       data: {
         title: n.title,
         content: n.content ?? null,
+        createdByName: n.createdByName ?? null,
         startTime: n.startTime,
         endTime: n.endTime,
         status: n.status,
@@ -140,7 +146,21 @@ export class NoticeRepository {
   ): Promise<{ list: NoticeEntity[]; total: number }> {
     const conditions: Prisma.NoticeWhereInput[] = [];
     if (filters.status) {
-      conditions.push({ status: filters.status });
+      const now = new Date();
+      if (filters.status === 'revoked') {
+        conditions.push({ status: NoticeStatus.Revoked });
+      } else if (filters.status === 'expired') {
+        conditions.push({ status: { not: NoticeStatus.Revoked } });
+        conditions.push({ endTime: { lt: now } });
+      } else if (filters.status === 'pending') {
+        conditions.push({ status: { not: NoticeStatus.Revoked } });
+        conditions.push({ startTime: { gt: now } });
+        conditions.push({ endTime: { gte: now } });
+      } else if (filters.status === 'active') {
+        conditions.push({ status: { not: NoticeStatus.Revoked } });
+        conditions.push({ startTime: { lte: now } });
+        conditions.push({ endTime: { gte: now } });
+      }
     }
     // Overlap between notice interval [startTime, endTime] and filter interval [effectiveFrom, effectiveTo].
     if (filters.effectiveFrom) {
@@ -183,6 +203,7 @@ export class NoticeRepository {
       data: {
         title: patch.title,
         content: patch.content ?? undefined,
+        createdByName: patch.createdByName,
         startTime: patch.startTime,
         endTime: patch.endTime,
         status: patch.status,
