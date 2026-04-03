@@ -293,7 +293,14 @@ pnpm start:prod
 
 ### 6.1 Auth（认证）
 
-#### 6.1.1 注册
+#### 6.1.1 获取密码传输公钥
+
+- `GET /api/v1/auth/password-key`
+- 说明：
+  - 前端可先读取一次公钥信息，再把登录、注册、重置密码的明文做前端加密后提交。
+  - 后端同时兼容明文密码和加密密码两种请求格式。
+
+#### 6.1.2 注册
 
 - `POST /api/v1/register`
 - Body(JSON)：
@@ -309,7 +316,7 @@ curl -X POST "http://localhost:8080/api/v1/register" \
   -d "{\"username\":\"alice\",\"password\":\"123456\",\"email\":\"alice@example.com\"}"
 ```
 
-#### 6.1.2 登录
+#### 6.1.3 登录
 
 - `POST /api/v1/login`
 - Body(JSON)：
@@ -330,7 +337,7 @@ curl -X POST "http://localhost:8080/api/v1/login" \
   -d "{\"username\":\"alice\",\"password\":\"123456\"}"
 ```
 
-#### 6.1.3 刷新 token（新增）
+#### 6.1.4 刷新 token
 
 - `POST /api/v1/refresh`
 - Body(JSON)：
@@ -344,7 +351,7 @@ curl -X POST "http://localhost:8080/api/v1/refresh" \
   -d "{\"refreshToken\":\"<your_refresh_token>\"}"
 ```
 
-#### 6.1.4 退出登录
+#### 6.1.5 退出登录
 
 - `POST /api/v1/logout`
 - Header：
@@ -357,7 +364,7 @@ curl -X POST "http://localhost:8080/api/v1/logout" \
   -H "Authorization: Bearer <token>"
 ```
 
-#### 6.1.5 Token 信息（调试）
+#### 6.1.6 Token 信息（调试）
 
 - `GET /api/v1/user/token-info`
 - Header：
@@ -378,7 +385,48 @@ curl "http://localhost:8080/api/v1/user/token-info" \
 - Header：
   - `Authorization: Bearer <token>`
 
-#### 6.2.2 用户列表（分页）
+#### 6.2.2 当前用户资料
+
+- `GET /api/v1/user/me/profile`
+- `PUT /api/v1/user/me/profile`
+- Header：
+  - `Authorization: Bearer <token>`
+- `PUT` Body(JSON)：
+  - `username` string（必填）
+  - `email` string（可选）
+
+#### 6.2.3 当前用户语言
+
+- `POST /api/v1/user/me/locale`
+- Header：
+  - `Authorization: Bearer <token>`
+- Body(JSON)：
+  - `locale` string（必填，示例：`zh-CN`、`en-US`）
+
+#### 6.2.4 当前用户仪表盘布局
+
+- `GET /api/v1/user/me/dashboard-layout`
+- `PUT /api/v1/user/me/dashboard-layout`
+- Header：
+  - `Authorization: Bearer <token>`
+- `PUT` Body(JSON)：
+  - `layout` array（必填，元素包含 `id`、`order`、`pinned`、`colSpan`、`rowSpan`）
+
+#### 6.2.5 当前用户权限
+
+- `GET /api/v1/user/me/permissions`
+- Header：
+  - `Authorization: Bearer <token>`
+
+#### 6.2.6 我的收藏城市
+
+- `GET /api/v1/user/favorites/cities`
+- `POST /api/v1/user/favorites/cities`
+- `DELETE /api/v1/user/favorites/cities/:cityId`
+- Header：
+  - `Authorization: Bearer <token>`
+
+#### 6.2.7 用户列表（分页）
 
 - `GET /api/v1/users`
 - 权限：
@@ -397,7 +445,7 @@ curl "http://localhost:8080/api/v1/users?page=1&pageSize=10" \
   -H "Authorization: Bearer <token>"
 ```
 
-#### 6.2.3 搜索用户（分页）
+#### 6.2.8 搜索用户（分页）
 
 - `GET /api/v1/users/search`
 - 权限：
@@ -417,7 +465,19 @@ curl "http://localhost:8080/api/v1/users/search?keyword=ali&page=1&pageSize=10" 
   -H "Authorization: Bearer <token>"
 ```
 
-#### 6.2.4 后台：禁用/启用用户
+#### 6.2.9 后台：用户详情
+
+- `GET /api/v1/admin/users/:id`
+- `PATCH /api/v1/admin/users/:id`
+- 权限：
+  - 需要登录
+  - 仅 `admin/operator` 可访问
+- `PATCH` Body(JSON)：
+  - `username` string（必填）
+  - `isActive` boolean（必填）
+  - `deniedPermissionKeys` string[]（必填，用于做用户级权限裁剪）
+
+#### 6.2.10 后台：禁用/启用用户
 
 - `PATCH /api/v1/admin/users/:id/status`
 - 权限：
@@ -426,7 +486,7 @@ curl "http://localhost:8080/api/v1/users/search?keyword=ali&page=1&pageSize=10" 
 - Body(JSON)：
   - `isActive` boolean（必填）
 
-#### 6.2.5 后台：重置密码
+#### 6.2.11 后台：重置密码
 
 - `POST /api/v1/admin/users/:id/reset-password`
 - 权限：
@@ -435,7 +495,7 @@ curl "http://localhost:8080/api/v1/users/search?keyword=ali&page=1&pageSize=10" 
 - Body(JSON)：
   - `newPassword` string（必填，最少 6 位）
 
-#### 6.2.6 后台：分配角色（权限分配）
+#### 6.2.12 后台：分配角色（权限分配）
 
 - `PATCH /api/v1/admin/users/:id/role`
 - 权限：
@@ -443,6 +503,13 @@ curl "http://localhost:8080/api/v1/users/search?keyword=ali&page=1&pageSize=10" 
   - 仅 `admin` 可访问
 - Body(JSON)：
   - `role`：`user|operator|admin`（必填）
+
+#### 6.2.13 后台：删除用户（软删除）
+
+- `DELETE /api/v1/admin/users/:id`
+- 权限：
+  - 需要登录
+  - 仅 `admin` 可访问
 
 ### 6.3 City（公开）
 
@@ -458,7 +525,20 @@ curl "http://localhost:8080/api/v1/users/search?keyword=ali&page=1&pageSize=10" 
 curl "http://localhost:8080/api/v1/city/search?keyword=beijing"
 ```
 
-#### 6.3.2 热门城市
+#### 6.3.2 坐标反查城市
+
+- `GET /api/v1/city/lookup`
+- Query：
+  - `lon` string（必填）
+  - `lat` string（必填）
+
+示例：
+
+```bash
+curl "http://localhost:8080/api/v1/city/lookup?lon=116.41&lat=39.92"
+```
+
+#### 6.3.3 热门城市
 
 - `GET /api/v1/city/top`
 - Query：
@@ -497,9 +577,23 @@ curl "http://localhost:8080/api/v1/air/now?city_id=101010100"
 - Query：
   - `city_id` string（必填）
 
-### 6.5 Notice（公开）
+### 6.5 Alert（公开）
 
-#### 6.5.1 当前生效通知
+#### 6.5.1 当前天气预警
+
+- `GET /api/v1/alert/current`
+- Query：
+  - `city_id` string（必填）
+
+示例：
+
+```bash
+curl "http://localhost:8080/api/v1/alert/current?city_id=101010100"
+```
+
+### 6.6 Notice（公开）
+
+#### 6.6.1 当前生效通知
 
 - `GET /api/v1/notice/active`
 
@@ -509,29 +603,99 @@ curl "http://localhost:8080/api/v1/air/now?city_id=101010100"
 curl "http://localhost:8080/api/v1/notice/active"
 ```
 
-#### 6.5.2 后台：公告配置（admin/operator）
+#### 6.6.2 后台：公告配置（admin/operator）
 
 - `GET /api/v1/admin/notices`
 - `POST /api/v1/admin/notices`
 - `PUT /api/v1/admin/notices/:id`
 - `POST /api/v1/admin/notices/:id/publish`
 - `POST /api/v1/admin/notices/:id/unpublish`
+- `POST /api/v1/admin/notices/:id/revoke`
 
-### 6.6 Provider（需要登录）
+### 6.7 Permission（需要登录）
 
-#### 6.6.1 Summary
+#### 6.7.1 当前用户权限
+
+- `GET /api/v1/user/me/permissions`
+- Header：
+  - `Authorization: Bearer <token>`
+
+#### 6.7.2 角色权限树
+
+- `GET /api/v1/admin/permissions/roles/:role`
+- `PUT /api/v1/admin/permissions/roles/:role`
+- 权限：
+  - 查看：`admin/operator`
+  - 更新：仅 `admin`
+
+### 6.8 Provider（需要登录）
+
+#### 6.8.1 Summary
 
 - `GET /api/v1/provider/summary`
 - Header：
   - `Authorization: Bearer <token>`
 
-#### 6.6.2 Stats
+#### 6.8.2 Stats
 
 - `GET /api/v1/provider/stats`
 - Header：
   - `Authorization: Bearer <token>`
 
-### 6.7 WebSocket
+### 6.9 Provider Account（后台 API 配额中心）
+
+#### 6.9.1 Overview
+
+- `GET /api/v1/admin/provider-accounts/overview`
+- 权限：
+  - 需要登录
+  - 具备 `apiQuota.view`
+
+#### 6.9.2 Trends
+
+- `GET /api/v1/admin/provider-accounts/trends`
+- 权限：
+  - 需要登录
+  - 具备 `apiQuota.view`
+- Query：
+  - `provider`：`qweather|amap|all`
+  - `metricKey`：`requestCount|quotaUsed|quotaLimit|usageRate|balance`
+  - `bucket`：`hour|day`
+  - `from` string（可选）
+  - `to` string（可选）
+
+#### 6.9.3 Manual Refresh
+
+- `POST /api/v1/admin/provider-accounts/refresh`
+- 权限：
+  - 需要登录
+  - 通常仅 `admin`
+- Body(JSON)：
+  - `providers` string[]（可选，示例：`["qweather","amap"]`）
+
+### 6.10 System（系统运行时配置）
+
+#### 6.10.1 后台读取系统配置
+
+- `GET /api/v1/admin/system/config`
+- 权限：
+  - 需要登录
+  - 具备 `system.view`
+
+#### 6.10.2 后台更新系统配置
+
+- `POST /api/v1/admin/system/config`
+- 权限：
+  - 需要登录
+  - 仅 `admin`
+- Body(JSON)：
+  - `pollingInterval` number（毫秒）
+
+#### 6.10.3 公开读取系统配置
+
+- `GET /api/v1/system/config`
+
+### 6.11 WebSocket
 
 - WebSocket 路径：`ws://localhost:8080/api/v1/ws`
 
