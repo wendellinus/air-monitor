@@ -68,6 +68,25 @@ export class UserRepository {
     });
   }
 
+  async createAdminUser(payload: {
+    username: string;
+    passwordHash: string;
+    email: string | null;
+    role: UserRole;
+    isActive: boolean;
+  }): Promise<{ id: number }> {
+    return this.prisma.user.create({
+      data: {
+        username: payload.username,
+        passwordHash: payload.passwordHash,
+        email: payload.email,
+        role: payload.role,
+        isActive: payload.isActive,
+      },
+      select: { id: true },
+    });
+  }
+
   async list(
     page: number,
     pageSize: number,

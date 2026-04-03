@@ -1,5 +1,5 @@
 import React from 'react';
-import { Search } from 'lucide-react';
+import { Search, UserPlus } from 'lucide-react';
 
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -19,6 +19,7 @@ type UsersToolbarProps = {
   isRefreshing: boolean;
   isInitialLoading: boolean;
   refreshLocked: boolean;
+  canCreate: boolean;
   onInputChange: (value: string) => void;
   onSearch: () => void;
   onClearSearch: () => void;
@@ -28,6 +29,7 @@ type UsersToolbarProps = {
   onCreatedToChange: (value: string) => void;
   onClearFilters: () => void;
   onRefresh: () => void;
+  onCreate: () => void;
 };
 
 export function UsersToolbar(props: UsersToolbarProps): React.ReactNode {
@@ -66,6 +68,12 @@ export function UsersToolbar(props: UsersToolbarProps): React.ReactNode {
         {props.keyword ? (
           <Button variant="ghost" className="h-10 px-4" onClick={props.onClearSearch}>
             {props.t('admin.users.search.clear')}
+          </Button>
+        ) : null}
+        {props.canCreate ? (
+          <Button className="h-10 px-4" onClick={props.onCreate}>
+            <UserPlus className="mr-2 h-4 w-4" aria-hidden="true" />
+            {props.t('admin.users.create.open')}
           </Button>
         ) : null}
         <RefreshIconButton

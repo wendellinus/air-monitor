@@ -359,6 +359,42 @@ export function ScreenPage(): React.ReactNode {
     return result;
   }, [cities, favoriteCities, selected]);
 
+  const handleMarkerClick = React.useCallback(
+    (id: string): void => {
+      const found = mergedSelectableCities.get(id) ?? null;
+      setPicked(null);
+      setSelected(found);
+    },
+    [mergedSelectableCities, setPicked],
+  );
+
+  const handleAlertMarkerClick = React.useCallback((): void => {
+    setAlertDialogOpen(true);
+  }, []);
+
+  const renderAlertMarker = React.useCallback((): React.ReactNode => {
+    if (!showMapAlert || !selected || !primaryAlert) return null;
+
+    return (
+      <ScreenMapAlertMarker
+        cityName={selected.name}
+        selectedAlerts={selectedAlerts}
+        primaryAlert={primaryAlert}
+        mapAlertKind={mapAlertKind}
+        mapAlertColor={mapAlertColor}
+        mapAlertToneClassName={mapAlertToneClassName}
+      />
+    );
+  }, [
+    mapAlertColor,
+    mapAlertKind,
+    mapAlertToneClassName,
+    primaryAlert,
+    selected,
+    selectedAlerts,
+    showMapAlert,
+  ]);
+
   return (
     <div className="relative h-dvh w-full overflow-hidden bg-background text-foreground">
       <div className="absolute inset-0">
@@ -366,11 +402,7 @@ export function ScreenPage(): React.ReactNode {
           center={selectedCoord}
           markers={mapMarkers}
           renderMarker={renderCityMarker}
-          onMarkerClick={(id) => {
-            const found = mergedSelectableCities.get(id) ?? null;
-            setPicked(null);
-            setSelected(found);
-          }}
+          onMarkerClick={handleMarkerClick}
           onMapClick={onMapClick}
           pinMarker={picked}
           renderPinMarker={renderPickedMarker}
@@ -379,19 +411,8 @@ export function ScreenPage(): React.ReactNode {
               ? { id: selected.cityId, lon: selectedCoord.lon, lat: selectedCoord.lat }
               : null
           }
-          onAlertMarkerClick={() => setAlertDialogOpen(true)}
-          renderAlertMarker={() =>
-            showMapAlert && selected && primaryAlert ? (
-              <ScreenMapAlertMarker
-                cityName={selected.name}
-                selectedAlerts={selectedAlerts}
-                primaryAlert={primaryAlert}
-                mapAlertKind={mapAlertKind}
-                mapAlertColor={mapAlertColor}
-                mapAlertToneClassName={mapAlertToneClassName}
-              />
-            ) : null
-          }
+          onAlertMarkerClick={handleAlertMarkerClick}
+          renderAlertMarker={renderAlertMarker}
         />
 
         {showMapAlert && selected ? (

@@ -186,7 +186,7 @@ export function AdminUserDetailPage(): React.ReactNode {
                 <Switch
                   id="user-detail-status"
                   checked={detail.isActive}
-                  disabled={!detail.isEditing || !detail.canEditProfile}
+                  disabled={!detail.isEditing || !detail.canEditStatus}
                   onCheckedChange={detail.setIsActive}
                 />
               </div>

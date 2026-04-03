@@ -36,6 +36,7 @@ type UseAdminUserDetailResult = {
   newPassword: string;
   resetTarget: { id: number; username: string } | null;
   canEditProfile: boolean;
+  canEditStatus: boolean;
   canEditPermissions: boolean;
   canEditAny: boolean;
   canDelete: boolean;
@@ -95,10 +96,12 @@ export function useAdminUserDetail(input: UseAdminUserDetailInput): UseAdminUser
   const [newPassword, setNewPassword] = React.useState<string>('');
   const [resetting, setResetting] = React.useState<boolean>(false);
   const firstLoadRef = React.useRef<boolean>(true);
+  const skipLeavePromptRef = React.useRef<boolean>(false);
 
   const canEditProfile = hasPermission('users.profile.update');
+  const canEditStatus = hasPermission('users.status.update');
   const canEditPermissions = hasPermission('users.permission.update');
-  const canEditAny = canEditProfile || canEditPermissions;
+  const canEditAny = canEditProfile || canEditStatus || canEditPermissions;
   const canDelete = hasPermission('users.delete');
   const canResetPassword = hasPermission('users.password.reset');
   const isEditing = searchParams.get('mode') === 'edit';
@@ -106,10 +109,8 @@ export function useAdminUserDetail(input: UseAdminUserDetailInput): UseAdminUser
   const isDirty = React.useMemo(() => {
     if (!userDetail) return false;
 
-    if (canEditProfile) {
-      if (username !== userDetail.username) return true;
-      if (isActive !== userDetail.isActive) return true;
-    }
+    if (canEditProfile && username !== userDetail.username) return true;
+    if (canEditStatus && isActive !== userDetail.isActive) return true;
 
     if (canEditPermissions) {
       const currentKeys = new Set(userDetail.effectivePermissionKeys);
@@ -123,6 +124,7 @@ export function useAdminUserDetail(input: UseAdminUserDetailInput): UseAdminUser
   }, [
     canEditPermissions,
     canEditProfile,
+    canEditStatus,
     isActive,
     selectedPermissions,
     userDetail,
@@ -160,6 +162,11 @@ export function useAdminUserDetail(input: UseAdminUserDetailInput): UseAdminUser
     },
     [searchParams, setSearchParams],
   );
+
+  const leaveEditModeSafely = React.useCallback((): void => {
+    skipLeavePromptRef.current = true;
+    updateMode(null);
+  }, [updateMode]);
 
   const confirmDiscardChanges = React.useCallback((): boolean => {
     if (!shouldWarnBeforeLeave) return true;
@@ -209,11 +216,24 @@ export function useAdminUserDetail(input: UseAdminUserDetailInput): UseAdminUser
 
   React.useEffect(() => {
     if (isEditing && !canEditAny) {
-      updateMode(null);
+      leaveEditModeSafely();
     }
-  }, [canEditAny, isEditing, updateMode]);
+  }, [canEditAny, isEditing, leaveEditModeSafely]);
 
-  const blocker = useBlocker(shouldWarnBeforeLeave);
+  React.useEffect(() => {
+    if (!isEditing && skipLeavePromptRef.current) {
+      skipLeavePromptRef.current = false;
+    }
+  }, [isEditing]);
+
+  const blocker = useBlocker(
+    React.useCallback(() => {
+      if (skipLeavePromptRef.current) {
+        return false;
+      }
+      return shouldWarnBeforeLeave;
+    }, [shouldWarnBeforeLeave]),
+  );
 
   React.useEffect(() => {
     if (blocker.state !== 'blocked') return;
@@ -317,8 +337,8 @@ export function useAdminUserDetail(input: UseAdminUserDetailInput): UseAdminUser
     if (userDetail) {
       syncDraft(userDetail);
     }
-    updateMode(null);
-  }, [confirmDiscardChanges, syncDraft, updateMode, userDetail]);
+    leaveEditModeSafely();
+  }, [confirmDiscardChanges, leaveEditModeSafely, syncDraft, userDetail]);
 
   const refresh = React.useCallback(async (): Promise<void> => {
     await loadDetail('refresh');
@@ -341,14 +361,14 @@ export function useAdminUserDetail(input: UseAdminUserDetailInput): UseAdminUser
       const detail = response.data.data;
       setUserDetail(detail);
       syncDraft(detail);
-      updateMode(null);
+      leaveEditModeSafely();
       toast.success(t('admin.users.detail.saveSuccess'));
     } catch (error: unknown) {
       toast.error(error instanceof Error ? error.message : t('admin.users.detail.saveFail'));
     } finally {
       setIsSaving(false);
     }
-  }, [canEditAny, isActive, isDirty, selectedPermissions, syncDraft, t, updateMode, userDetail, userId, username]);
+  }, [canEditAny, isActive, isDirty, leaveEditModeSafely, selectedPermissions, syncDraft, t, userDetail, userId, username]);
 
   const deleteUser = React.useCallback(async (): Promise<void> => {
     if (!userDetail || userId === null || !canDelete) return;
@@ -360,6 +380,7 @@ export function useAdminUserDetail(input: UseAdminUserDetailInput): UseAdminUser
     try {
       await api.delete(`/admin/users/${userId}`);
       toast.success(t('admin.users.detail.deleteSuccess', { username: userDetail.username }));
+      skipLeavePromptRef.current = true;
       navigate('/admin/users', { replace: true });
     } catch (error: unknown) {
       toast.error(error instanceof Error ? error.message : t('admin.users.detail.deleteFail'));
@@ -416,6 +437,7 @@ export function useAdminUserDetail(input: UseAdminUserDetailInput): UseAdminUser
     newPassword,
     resetTarget,
     canEditProfile,
+    canEditStatus,
     canEditPermissions,
     canEditAny,
     canDelete,

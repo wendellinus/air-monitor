@@ -54,6 +54,7 @@ describe('Permission (e2e)', () => {
     expect(myPermissions.body.code).toBe(0);
     expect(Array.isArray(myPermissions.body.data.permissions)).toBe(true);
     expect(myPermissions.body.data.permissions).toContain('permissions.view');
+    expect(myPermissions.body.data.permissions).toContain('users.create');
 
     const roleTree = await request(t.app.getHttpServer())
       .get('/api/v1/admin/permissions/roles/operator')
@@ -62,6 +63,8 @@ describe('Permission (e2e)', () => {
     expect(Array.isArray(roleTree.body.data.tree)).toBe(true);
     expect(roleTree.body.data.tree.length).toBeGreaterThan(0);
     expect(Array.isArray(roleTree.body.data.selectedKeys)).toBe(true);
+    const serializedTree = JSON.stringify(roleTree.body.data.tree);
+    expect(serializedTree).toContain('"key":"users.create"');
 
     const selectedKeys: string[] = roleTree.body.data.selectedKeys as string[];
 
@@ -132,12 +135,6 @@ describe('Permission (e2e)', () => {
 
     const targetUsername = `usr_op_${rand8()}`.slice(0, 20);
     const targetPassword = 'operator123';
-    const targetHash = await bcrypt.hash(targetPassword, 10);
-    const target = await t.prisma.user.create({
-      data: { username: targetUsername, passwordHash: targetHash, isActive: true, role: 'operator' },
-      select: { id: true },
-    });
-    createdUserIds.push(target.id);
 
     const loginAdmin = await request(t.app.getHttpServer())
       .post('/api/v1/login')
@@ -145,8 +142,24 @@ describe('Permission (e2e)', () => {
     expect(loginAdmin.body.code).toBe(0);
     const adminToken: string = loginAdmin.body.data.token as string;
 
+    const createRes = await request(t.app.getHttpServer())
+      .post('/api/v1/admin/users')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        username: targetUsername,
+        password: targetPassword,
+        role: 'operator',
+        isActive: true,
+        email: `${targetUsername}@example.com`,
+      });
+    expect(createRes.body.code).toBe(0);
+    expect(createRes.body.data.username).toBe(targetUsername);
+    expect(createRes.body.data.role).toBe('operator');
+    expect(createRes.body.data.rolePermissionKeys).toContain('users.create');
+    createdUserIds.push(createRes.body.data.id as number);
+
     const detailRes = await request(t.app.getHttpServer())
-      .get(`/api/v1/admin/users/${target.id}`)
+      .get(`/api/v1/admin/users/${createRes.body.data.id as number}`)
       .set('Authorization', `Bearer ${adminToken}`);
     expect(detailRes.body.code).toBe(0);
     expect(detailRes.body.data.username).toBe(targetUsername);
@@ -154,7 +167,7 @@ describe('Permission (e2e)', () => {
 
     const renamedUsername = `ren_${rand8()}`.slice(0, 20);
     const updateRes = await request(t.app.getHttpServer())
-      .patch(`/api/v1/admin/users/${target.id}`)
+      .patch(`/api/v1/admin/users/${createRes.body.data.id as number}`)
       .set('Authorization', `Bearer ${adminToken}`)
       .send({
         username: renamedUsername,
@@ -180,12 +193,12 @@ describe('Permission (e2e)', () => {
     expect(myPermissions.body.data.permissions).toContain('users.view');
 
     const deleteRes = await request(t.app.getHttpServer())
-      .delete(`/api/v1/admin/users/${target.id}`)
+      .delete(`/api/v1/admin/users/${createRes.body.data.id as number}`)
       .set('Authorization', `Bearer ${adminToken}`);
     expect(deleteRes.body.code).toBe(0);
 
     const deletedUser = await t.prisma.user.findUnique({
-      where: { id: target.id },
+      where: { id: createRes.body.data.id as number },
       select: { deletedAt: true, username: true, isActive: true },
     });
     expect(deletedUser?.deletedAt).toBeTruthy();

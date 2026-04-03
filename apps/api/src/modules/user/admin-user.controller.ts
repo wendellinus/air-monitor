@@ -12,6 +12,7 @@ import { CurrentUser } from '../auth/current-user.decorator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import type { JwtUser } from '../auth/types';
 
+import { AdminCreateUserDto } from './dto/admin-create-user.dto';
 import { AdminFavoriteQueryDto } from './dto/admin-favorite-query.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { SetUserRoleDto } from './dto/set-user-role.dto';
@@ -45,6 +46,28 @@ export class AdminUserController {
   ): Promise<unknown> {
     await this.users.removeFavoriteCityAsAdmin(userId, cityId);
     return { ok: true };
+  }
+
+  @Roles('admin', 'operator')
+  @Permissions('users.create')
+  @Post()
+  async create(
+    @CurrentUser() user: JwtUser,
+    @Body() dto: AdminCreateUserDto,
+  ): Promise<AdminUserDetailData> {
+    const password = this.passwordCrypto.resolvePassword(
+      dto.password,
+      dto.encryptedPassword,
+      dto.passwordKeyId,
+      6,
+    );
+    return this.users.createAdminUser(user.userId, user.role, {
+      username: dto.username,
+      password,
+      email: dto.email,
+      role: dto.role,
+      isActive: dto.isActive,
+    });
   }
 
   @Roles('admin', 'operator')

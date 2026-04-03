@@ -13,6 +13,7 @@ const PERMISSION_LABEL_KEY_MAP: Record<string, string> = {
   'dashboard.view': 'admin.permissions.node.dashboardView',
   'users.view': 'admin.permissions.node.usersView',
   'users.profile.update': 'admin.permissions.node.usersProfileUpdate',
+  'users.create': 'admin.permissions.node.usersCreate',
   'users.permission.update': 'admin.permissions.node.usersPermissionUpdate',
   'users.status.update': 'admin.permissions.node.usersStatusUpdate',
   'users.role.update': 'admin.permissions.node.usersRoleUpdate',

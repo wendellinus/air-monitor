@@ -52,6 +52,14 @@ type UserQueryFilters = {
   createdTo?: string;
 };
 
+type AdminCreateUserInput = {
+  username: string;
+  password: string;
+  email?: string;
+  role?: UserRole;
+  isActive?: boolean;
+};
+
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
 }
@@ -224,6 +232,42 @@ export class UserService {
     };
   }
 
+  async createAdminUser(
+    actorUserId: number,
+    actorRole: UserRole,
+    payload: AdminCreateUserInput,
+  ): Promise<AdminUserDetailData> {
+    const actorPermissionKeys = await this.permissionService.getMyPermissionKeys(actorUserId, actorRole);
+    const actorPermissionSet = new Set(actorPermissionKeys);
+
+    const nextRole = payload.role ?? 'user';
+    const nextIsActive = payload.isActive ?? true;
+
+    if (nextRole !== 'user' && !actorPermissionSet.has('users.role.update')) {
+      throw new AppError(ErrorCodes.Unauthorized, 'You do not have permission to assign user roles.');
+    }
+
+    if (!nextIsActive && !actorPermissionSet.has('users.status.update')) {
+      throw new AppError(ErrorCodes.Unauthorized, 'You do not have permission to set user status during creation.');
+    }
+
+    const existsUser = await this.repo.findByUsername(payload.username);
+    if (existsUser) {
+      throw new AppError(ErrorCodes.ParamError, 'Username already exists.');
+    }
+
+    const passwordHash = await bcrypt.hash(payload.password, 10);
+    const created = await this.repo.createAdminUser({
+      username: payload.username,
+      passwordHash,
+      email: payload.email ?? null,
+      role: nextRole,
+      isActive: nextIsActive,
+    });
+
+    return this.getAdminUserDetail(created.id);
+  }
+
   async setUserActive(id: number, isActive: boolean): Promise<void> {
     const found = await this.repo.findById(id);
     if (!found) throw new AppError(ErrorCodes.ParamError, 'User not found.');
@@ -295,8 +339,12 @@ export class UserService {
       currentPermissionDetail.deniedPermissionKeys,
     );
 
-    if ((usernameChanged || statusChanged) && !actorPermissionSet.has('users.profile.update')) {
+    if (usernameChanged && !actorPermissionSet.has('users.profile.update')) {
       throw new AppError(ErrorCodes.Unauthorized, 'You do not have permission to update user profile fields.');
+    }
+
+    if (statusChanged && !actorPermissionSet.has('users.status.update')) {
+      throw new AppError(ErrorCodes.Unauthorized, 'You do not have permission to update user status.');
     }
 
     if (deniedChanged && !actorPermissionSet.has('users.permission.update')) {
