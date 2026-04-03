@@ -49,6 +49,7 @@ export function AMapPanel(props: {
   onMarkerClick: (id: string) => void;
   renderMarker?: (ctx: { id: string; name: string }) => React.ReactNode;
   alertMarker?: { id: string; lon: number; lat: number } | null;
+  onAlertMarkerClick?: (id: string) => void;
   renderAlertMarker?: (ctx: { id: string }) => React.ReactNode;
   pinMarker?: { lon: number; lat: number } | null;
   renderPinMarker?: () => React.ReactNode;
@@ -275,16 +276,59 @@ export function AMapPanel(props: {
 
     if (!props.alertMarker) return;
 
+    const alertMarkerId = props.alertMarker.id;
     const pos = toAmapCoord({ lon: props.alertMarker.lon, lat: props.alertMarker.lat });
     const host = document.createElement('div');
     host.className = 'pointer-events-auto';
     host.style.transform = 'translate(-50%, -100%)';
     host.style.transformOrigin = 'center bottom';
+    if (props.onAlertMarkerClick) host.style.cursor = 'pointer';
+
+    if (props.onAlertMarkerClick) {
+      const disableMapDrag = () => map.setStatus?.({ dragEnable: false });
+      const enableMapDrag = () => map.setStatus?.({ dragEnable: true });
+      const stopNativeEvent = (event: Event) => {
+        event.preventDefault();
+        event.stopPropagation();
+      };
+      const startInteraction = (event: Event) => {
+        disableMapDrag();
+        stopNativeEvent(event);
+      };
+      const moveInteraction = (event: Event) => {
+        stopNativeEvent(event);
+      };
+      const endInteraction = (event: Event) => {
+        enableMapDrag();
+        stopNativeEvent(event);
+      };
+      host.addEventListener('pointerdown', startInteraction);
+      host.addEventListener('pointermove', moveInteraction);
+      host.addEventListener('pointerup', endInteraction);
+      host.addEventListener('pointercancel', endInteraction);
+      host.addEventListener('mousedown', startInteraction);
+      host.addEventListener('mousemove', moveInteraction);
+      host.addEventListener('mouseup', endInteraction);
+      host.addEventListener('mouseleave', enableMapDrag);
+      host.addEventListener('touchstart', startInteraction, { passive: false });
+      host.addEventListener('touchmove', moveInteraction, { passive: false });
+      host.addEventListener('touchend', endInteraction);
+      host.addEventListener('touchcancel', endInteraction);
+      host.addEventListener('click', (event) => {
+        enableMapDrag();
+        stopNativeEvent(event);
+        props.onAlertMarkerClick?.(alertMarkerId);
+      });
+    }
 
     const marker = new sdk.Marker({
       position: [pos.lon, pos.lat],
       title: '预警',
       content: host,
+    });
+    marker.on('click', (event) => {
+      event?.originEvent?.stopPropagation?.();
+      props.onAlertMarkerClick?.(alertMarkerId);
     });
     marker.setMap(map);
     alertMarkerRef.current = marker;
@@ -295,7 +339,14 @@ export function AMapPanel(props: {
       if (alertMarkerRef.current === marker) alertMarkerRef.current = null;
       setAlertHost((cur) => (cur === host ? null : cur));
     };
-  }, [mapInstance, props.alertMarker?.id, props.alertMarker?.lon, props.alertMarker?.lat, toAmapCoord]);
+  }, [
+    mapInstance,
+    props.alertMarker?.id,
+    props.alertMarker?.lon,
+    props.alertMarker?.lat,
+    props.onAlertMarkerClick,
+    toAmapCoord,
+  ]);
 
   React.useEffect(() => {
     const map = mapInstance;

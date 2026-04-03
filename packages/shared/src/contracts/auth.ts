@@ -2,9 +2,17 @@ import type { UserRole } from '../user-role';
 
 export type UserLocale = 'zh-CN' | 'en-US';
 
+export type PasswordEncryptionKeyData = {
+  keyId: string;
+  algorithm: 'RSA-OAEP-256';
+  publicKeyPem: string;
+};
+
 export type RegisterRequest = {
   username: string;
-  password: string;
+  password?: string;
+  encryptedPassword?: string;
+  passwordKeyId?: string;
   email?: string;
 };
 
@@ -16,7 +24,9 @@ export type RegisterResponseData = {
 
 export type LoginRequest = {
   username: string;
-  password: string;
+  password?: string;
+  encryptedPassword?: string;
+  passwordKeyId?: string;
 };
 
 export type LoginUser = {

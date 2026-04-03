@@ -10,7 +10,9 @@
 
 更完整的从零安装说明见：
 
-- [`docs/1. 环境安装与项目启动.md`](./docs/1.%20环境安装与项目启动.md)
+- [`docs/环境安装与项目启动.md`](./docs/环境安装与项目启动.md)
+- [`docs/环境安装与项目启动-按命令顺序.md`](./docs/环境安装与项目启动-按命令顺序.md)
+- [`docs/环境安装与项目启动-超详细版.md`](./docs/环境安装与项目启动-超详细版.md)
 
 ## 项目结构
 
@@ -46,7 +48,7 @@ air-monitor/
 
 ### 1. 一键启动
 
-如果你已经准备好环境变量，或者愿意先使用仓库默认模板，直接执行这一条就够了：
+如果你已经从项目维护者处拿到私发的环境文件，直接执行这一条就够了：
 
 ```bash
 pnpm bootstrap:dev
@@ -90,21 +92,19 @@ pnpm dev:infra
 docker compose ps
 ```
 
-### 4. 配置后端环境变量
+### 4. 放置后端环境文件
 
-复制环境变量模板：
+从项目维护者私发的环境文件包中取出后端 `.env`，放到：
 
-```bash
-cp apps/api/.env.example apps/api/.env
+```text
+apps/api/.env
 ```
 
-Windows PowerShell 也可以这样复制：
+如果你拿到的文件名不是 `.env`，复制后重命名为 `apps/api/.env` 即可。
 
-```powershell
-Copy-Item apps/api/.env.example apps/api/.env
-```
+`apps/api/.env.example` 只用于查看字段说明，不作为实际联调配置来源。
 
-然后编辑 `apps/api/.env`，至少确认下面这些配置：
+后端环境文件里至少应包含下面这些配置：
 
 ```env
 PORT=8080
@@ -169,13 +169,17 @@ pnpm dev
 
 ## 前端地图配置（可选）
 
-如果你需要正常使用大屏地图组件，再配置前端环境变量：
+如果你需要正常使用大屏地图组件，请从私发的环境文件包中取出前端 `.env`，放到：
 
-```bash
-cp apps/web/.env.example apps/web/.env
+```text
+apps/web/.env
 ```
 
-然后编辑 `apps/web/.env`：
+如果你拿到的文件名不是 `.env`，复制后重命名为 `apps/web/.env` 即可。
+
+`apps/web/.env.example` 只用于查看字段说明。
+
+前端环境文件里至少应包含：
 
 ```env
 VITE_AMAP_KEY=你的高德 Web JS API Key
@@ -279,6 +283,15 @@ pnpm prisma:seed
 
 ## 相关文档
 
+- 功能总览：`docs/功能总览.md`
+- 功能-认证与用户：`docs/功能-认证与用户.md`
+- 功能-监测与预警：`docs/功能-监测与预警.md`
+- 功能-后台管理与配置：`docs/功能-后台管理与配置.md`
+- 功能-前端页面：`docs/功能-前端页面.md`
+- 功能-基础设施与调度：`docs/功能-基础设施与调度.md`
+- 启动基础版：`docs/环境安装与项目启动.md`
+- 启动顺序版：`docs/环境安装与项目启动-按命令顺序.md`
+- 启动超详细版：`docs/环境安装与项目启动-超详细版.md`
 - API 新手说明：`apps/api/docs/beginner-guide.md`
 - API 记忆锚点：`apps/api/docs/memory-anchor.md`
 - 大屏布局说明：`docs/screen-page-layout.md`

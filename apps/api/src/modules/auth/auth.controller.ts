@@ -4,6 +4,7 @@ import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import type {
   LoginResponseData,
   OkResponseData,
+  PasswordEncryptionKeyData,
   RefreshResponseData,
   RegisterResponseData,
 } from '@air-monitor/shared';
@@ -12,6 +13,7 @@ import { AppError } from '../../shared/app-error';
 import { ErrorCodes } from '../../shared/error-codes';
 
 import { AuthService } from './auth.service';
+import { AuthPasswordCryptoService } from './auth-password-crypto.service';
 import { CurrentUser } from './current-user.decorator';
 import { LoginDto } from './dto/login.dto';
 import { RefreshDto } from './dto/refresh.dto';
@@ -22,17 +24,36 @@ import type { JwtUser } from './types';
 @ApiTags('auth')
 @Controller()
 export class AuthController {
-  constructor(private readonly auth: AuthService) {}
+  constructor(
+    private readonly auth: AuthService,
+    private readonly passwordCrypto: AuthPasswordCryptoService,
+  ) {}
+
+  @Get('auth/password-key')
+  getPasswordKey(): PasswordEncryptionKeyData {
+    return this.passwordCrypto.getPasswordEncryptionKey();
+  }
 
   // Keep legacy endpoints at /api/v1/register and /api/v1/login.
   @Post('register')
   async register(@Body() dto: RegisterDto): Promise<RegisterResponseData> {
-    return this.auth.register(dto.username, dto.password, dto.email);
+    const password = this.passwordCrypto.resolvePassword(
+      dto.password,
+      dto.encryptedPassword,
+      dto.passwordKeyId,
+      6,
+    );
+    return this.auth.register(dto.username, password, dto.email);
   }
 
   @Post('login')
   async login(@Body() dto: LoginDto): Promise<LoginResponseData> {
-    return this.auth.login(dto.username, dto.password);
+    const password = this.passwordCrypto.resolvePassword(
+      dto.password,
+      dto.encryptedPassword,
+      dto.passwordKeyId,
+    );
+    return this.auth.login(dto.username, password);
   }
 
   // Added endpoint for refresh token flow.

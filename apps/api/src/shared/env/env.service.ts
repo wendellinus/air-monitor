@@ -17,6 +17,7 @@ const envSchema = z.object({
   JWT_ACCESS_EXPIRES_IN: z.string().default('15m'),
   JWT_REFRESH_SECRET: z.string().min(16),
   JWT_REFRESH_EXPIRES_IN: z.string().default('7d'),
+  AUTH_PASSWORD_PRIVATE_KEY_PEM: z.string().optional(),
 
   REDIS_URL: z.string().min(1).default('redis://127.0.0.1:6379'),
 
@@ -52,6 +53,13 @@ export class EnvService {
     this.env = envSchema.parse(process.env);
   }
 
+  private normalizePemEnv(value: string | undefined): string | undefined {
+    if (!value) return undefined;
+    // dotenv keeps "\n" as two characters; crypto expects real newlines in PEM.
+    // Support both "\n" and "\\n" encodings (we've seen both in real .env files).
+    return value.replace(/\\\\n/g, '\n').replace(/\\n/g, '\n');
+  }
+
   get port(): number {
     return Number(this.env.PORT ?? 8080);
   }
@@ -80,6 +88,10 @@ export class EnvService {
     return this.env.JWT_REFRESH_EXPIRES_IN;
   }
 
+  get authPasswordPrivateKeyPem(): string | undefined {
+    return this.normalizePemEnv(this.env.AUTH_PASSWORD_PRIVATE_KEY_PEM);
+  }
+
   get qweatherHost(): string | undefined {
     return this.env.QWEATHER_HOST;
   }
@@ -97,11 +109,7 @@ export class EnvService {
   }
 
   get qweatherPrivateKeyPem(): string | undefined {
-    const v = this.env.QWEATHER_PRIVATE_KEY_PEM;
-    if (!v) return undefined;
-    // dotenv keeps "\n" as two characters; crypto expects real newlines in PEM.
-    // Support both "\n" and "\\n" encodings (we've seen both in real .env files).
-    return v.replace(/\\\\n/g, '\n').replace(/\\n/g, '\n');
+    return this.normalizePemEnv(this.env.QWEATHER_PRIVATE_KEY_PEM);
   }
 
   get cacheRefreshEnabled(): boolean {

@@ -37,6 +37,7 @@ import { AMapPanel } from './widgets/amap-panel';
 import { getAlertAccentColor, getAlertKind, pickPrimaryAlert } from './widgets/alert-icon';
 import { ScreenBottomDock } from './widgets/screen-bottom-dock';
 import { ScreenFavoritesSheet } from './widgets/screen-favorites-sheet';
+import { ScreenAlertDialog } from './widgets/screen-alert-dialog';
 import { ScreenLeftPanel } from './widgets/screen-left-panel';
 import { ScreenMapAlertMarker } from './widgets/screen-map-alert-marker';
 import {
@@ -105,6 +106,7 @@ function pickMarkerTone(aqi: number | null, alertCount: number): MarkerTone {
 export function ScreenPage(): React.ReactNode {
   const [selected, setSelected] = React.useState<CityItem | null>(null);
   const [favoritesOpen, setFavoritesOpen] = React.useState<boolean>(false);
+  const [alertDialogOpen, setAlertDialogOpen] = React.useState<boolean>(false);
 
   const now = useScreenClock();
   const { pollingIntervalMs } = useSystemPollingInterval();
@@ -189,6 +191,12 @@ export function ScreenPage(): React.ReactNode {
     if (severity === 'minor') return 'text-sky-200';
     return 'text-primary';
   })();
+
+  React.useEffect(() => {
+    if (!showMapAlert) {
+      setAlertDialogOpen(false);
+    }
+  }, [showMapAlert]);
 
   const mapMarkers = React.useMemo(() => {
     const mergedCities: CityItem[] = [...cities, ...favoriteCities, ...(selected ? [selected] : [])];
@@ -371,6 +379,7 @@ export function ScreenPage(): React.ReactNode {
               ? { id: selected.cityId, lon: selectedCoord.lon, lat: selectedCoord.lat }
               : null
           }
+          onAlertMarkerClick={() => setAlertDialogOpen(true)}
           renderAlertMarker={() =>
             showMapAlert && selected && primaryAlert ? (
               <ScreenMapAlertMarker
@@ -384,6 +393,15 @@ export function ScreenPage(): React.ReactNode {
             ) : null
           }
         />
+
+        {showMapAlert && selected ? (
+          <ScreenAlertDialog
+            open={alertDialogOpen}
+            cityName={selected.name}
+            alerts={selectedAlerts}
+            onOpenChange={setAlertDialogOpen}
+          />
+        ) : null}
 
         <div className="pointer-events-none absolute inset-0 bg-linear-to-b from-black/40 via-black/0 to-black/62" />
         <div className="pointer-events-none absolute inset-0 bg-linear-to-r from-black/32 via-transparent to-black/32" />

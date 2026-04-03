@@ -7,6 +7,7 @@ import { Permissions } from '../../shared/authz/permissions.decorator';
 import { PermissionsGuard } from '../../shared/authz/permissions.guard';
 import { Roles } from '../../shared/authz/roles.decorator';
 import { RolesGuard } from '../../shared/authz/roles.guard';
+import { AuthPasswordCryptoService } from '../auth/auth-password-crypto.service';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import type { JwtUser } from '../auth/types';
@@ -23,7 +24,10 @@ import { UserService } from './user.service';
 @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
 @Controller('admin/users')
 export class AdminUserController {
-  constructor(private readonly users: UserService) {}
+  constructor(
+    private readonly users: UserService,
+    private readonly passwordCrypto: AuthPasswordCryptoService,
+  ) {}
 
   @Roles('admin', 'operator')
   @Permissions('favorites.view')
@@ -73,7 +77,12 @@ export class AdminUserController {
   @Permissions('users.password.reset')
   @Post(':id/reset-password')
   async resetPassword(@Param('id', ParseIntPipe) id: number, @Body() dto: ResetPasswordDto): Promise<unknown> {
-    await this.users.resetPassword(id, dto.newPassword);
+    const newPassword = this.passwordCrypto.resolveNewPassword(
+      dto.newPassword,
+      dto.encryptedNewPassword,
+      dto.passwordKeyId,
+    );
+    await this.users.resetPassword(id, newPassword);
     return { ok: true };
   }
 

@@ -7,6 +7,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { api } from '@/shared/api';
 import { SILENT_UI_ERROR_REQUEST_CONFIG } from '@/shared/http/api-request-config';
+import { isAuthTransportSecure } from '@/shared/http/auth-transport';
+import { encryptRegisterPasswordTransport } from '@/shared/http/password-protection';
 import { useI18n } from '@/shared/i18n';
 import type { ApiResponse } from '@/shared/types';
 import { AdminAuthFeedback, AdminAuthShell } from '@/ui/admin/auth/components';
@@ -28,6 +30,13 @@ export function AdminRegisterPage(): React.ReactNode {
   const [success, setSuccess] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(false);
   const redirectTimerRef = React.useRef<number | null>(null);
+  const transportError = isAuthTransportSecure()
+    ? null
+    : textByLocale(
+        locale,
+        '当前页面未启用 HTTPS，注册密码会暴露在未加密传输中。请切换到 HTTPS 后再继续。',
+        'This page is not using HTTPS, so registration credentials would travel without transport encryption. Switch to HTTPS before continuing.',
+      );
 
   React.useEffect(() => {
     return () => {
@@ -39,6 +48,11 @@ export function AdminRegisterPage(): React.ReactNode {
     event.preventDefault();
     setError(null);
     setSuccess(null);
+
+    if (transportError) {
+      setError(transportError);
+      return;
+    }
 
     const normalizedUsername = username.trim();
     const normalizedEmail = email.trim();
@@ -60,7 +74,7 @@ export function AdminRegisterPage(): React.ReactNode {
     try {
       const payload: RegisterRequest = {
         username: normalizedUsername,
-        password,
+        ...(await encryptRegisterPasswordTransport(password)),
         email: normalizedEmail || undefined,
       };
       await api.post<ApiResponse<RegisterResponseData>>(
@@ -178,13 +192,13 @@ export function AdminRegisterPage(): React.ReactNode {
         </div>
 
         <div className="grid gap-3">
-          <AdminAuthFeedback tone="error" message={error} />
+          <AdminAuthFeedback tone="error" message={error ?? transportError} />
           <AdminAuthFeedback tone="success" message={success} />
         </div>
 
         <Button
           className="h-12 w-full rounded-xl text-sm font-semibold shadow-[0_14px_30px_-18px_rgba(37,99,235,0.68)]"
-          disabled={loading || !username || !password || !confirmPassword}
+          disabled={loading || !username || !password || !confirmPassword || Boolean(transportError)}
           type="submit"
         >
           {loading ? t('auth.register.submitting') : t('auth.register.submit')}

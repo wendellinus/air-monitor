@@ -24,6 +24,7 @@ export type {
   MeProfileData,
   MeResponseData,
   OkResponseData,
+  PasswordEncryptionKeyData,
   RefreshRequest,
   RefreshResponseData,
   RegisterRequest,

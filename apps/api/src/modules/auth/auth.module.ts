@@ -6,6 +6,7 @@ import { EnvService } from '../../shared/env/env.service';
 
 import { REFRESH_JWT_SERVICE } from './auth.constants';
 import { AuthController } from './auth.controller';
+import { AuthPasswordCryptoService } from './auth-password-crypto.service';
 import { AuthService } from './auth.service';
 import { JwtStrategy } from './jwt.strategy';
 
@@ -14,6 +15,7 @@ import { JwtStrategy } from './jwt.strategy';
   controllers: [AuthController],
   providers: [
     AuthService,
+    AuthPasswordCryptoService,
     JwtStrategy,
     {
       provide: REFRESH_JWT_SERVICE,
@@ -23,7 +25,6 @@ import { JwtStrategy } from './jwt.strategy';
       },
     },
   ],
-  exports: [AuthService],
+  exports: [AuthService, AuthPasswordCryptoService],
 })
 export class AuthModule {}
-

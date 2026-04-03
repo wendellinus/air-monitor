@@ -101,13 +101,15 @@ docker compose up -d
 
 ### 3.1 创建 `.env`
 
-在项目根目录运行：
+从项目维护者私发的环境文件包中取出后端 `.env`，放到：
 
-```bash
-cp apps/api/.env.example apps/api/.env
+```text
+apps/api/.env
 ```
 
-然后用编辑器打开 `.env` 修改里面的值。
+如果拿到的文件名不是 `.env`，复制后重命名为 `apps/api/.env` 即可。
+
+`apps/api/.env.example` 只用于查看字段说明，不作为实际联调配置来源。
 
 > 注意：`.env` 已在 `.gitignore` 中忽略，不会被提交。真实密钥不要提交到仓库。
 

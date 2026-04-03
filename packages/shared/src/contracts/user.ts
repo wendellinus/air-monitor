@@ -19,7 +19,9 @@ export type AdminSetUserStatusRequest = {
 };
 
 export type AdminResetPasswordRequest = {
-  newPassword: string;
+  newPassword?: string;
+  encryptedNewPassword?: string;
+  passwordKeyId?: string;
 };
 
 export type AdminSetUserRoleRequest = {

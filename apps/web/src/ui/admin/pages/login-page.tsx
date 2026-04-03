@@ -1,13 +1,16 @@
 ﻿import type { LoginRequest, LoginResponseData, MePermissionsData, MeResponseData } from '@air-monitor/shared';
-import { GalleryVerticalEnd } from 'lucide-react';
+import { Eye, EyeOff, GalleryVerticalEnd } from 'lucide-react';
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from '@/components/ui/input-group';
 import { api } from '@/shared/api';
 import { setTokens } from '@/shared/auth';
 import { SILENT_UI_ERROR_REQUEST_CONFIG } from '@/shared/http/api-request-config';
+import { isAuthTransportSecure } from '@/shared/http/auth-transport';
+import { encryptPasswordTransport } from '@/shared/http/password-protection';
 import { useI18n } from '@/shared/i18n';
 import type { Locale } from '@/shared/i18n';
 import type { ApiResponse, Tokens } from '@/shared/types';
@@ -28,16 +31,33 @@ export function AdminLoginPage(): React.ReactNode {
 
   const [username, setUsername] = React.useState('');
   const [password, setPassword] = React.useState('');
+  const [showPassword, setShowPassword] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(false);
+  const transportError = isAuthTransportSecure()
+    ? null
+    : textByLocale(
+        locale,
+        '当前页面未启用 HTTPS，登录密码会暴露在未加密传输中。请切换到 HTTPS 后再登录。',
+        'This page is not using HTTPS, so login credentials would travel without transport encryption. Switch to HTTPS before signing in.',
+      );
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
     setError(null);
+
+    if (transportError) {
+      setError(transportError);
+      return;
+    }
+
     setLoading(true);
 
     try {
-      const payload: LoginRequest = { username: username.trim(), password };
+      const payload: LoginRequest = {
+        username: username.trim(),
+        ...(await encryptPasswordTransport(password)),
+      };
       const response = await api.post<ApiResponse<LoginResponseData>>(
         '/login',
         payload,
@@ -118,28 +138,46 @@ export function AdminLoginPage(): React.ReactNode {
           <label className="text-sm font-medium text-slate-700" htmlFor={passwordId}>
             {t('auth.login.password')}
           </label>
-          <Input
-            id={passwordId}
-            autoComplete="current-password"
-            className="h-12 rounded-xl border-slate-200/90 bg-white/75 px-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.85)] transition-all focus-visible:bg-white"
-            placeholder={t('auth.login.passwordPlaceholder')}
-            required
-            type="password"
-            value={password}
-            onChange={(event) => {
-              setPassword(event.target.value);
-              if (error) setError(null);
-            }}
-          />
+          <InputGroup className="h-12 rounded-xl border-slate-200/90 bg-white/75 shadow-[inset_0_1px_0_rgba(255,255,255,0.85)] transition-all focus-within:bg-white">
+            <InputGroupInput
+              id={passwordId}
+              autoComplete="current-password"
+              className="h-full rounded-xl px-4 py-0 text-sm md:text-sm"
+              placeholder={t('auth.login.passwordPlaceholder')}
+              required
+              type={showPassword ? 'text' : 'password'}
+              value={password}
+              onChange={(event) => {
+                setPassword(event.target.value);
+                if (error) setError(null);
+              }}
+            />
+            <InputGroupAddon align="inline-end" className="px-2.5">
+              <InputGroupButton
+                aria-label={t(showPassword ? 'auth.login.hidePassword' : 'auth.login.showPassword')}
+                aria-pressed={showPassword}
+                className="size-8 rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+                size="icon-sm"
+                variant="ghost"
+                onClick={() => setShowPassword((current) => !current)}
+              >
+                {showPassword ? (
+                  <EyeOff className="size-4" aria-hidden="true" />
+                ) : (
+                  <Eye className="size-4" aria-hidden="true" />
+                )}
+              </InputGroupButton>
+            </InputGroupAddon>
+          </InputGroup>
         </div>
 
         <div className="min-h-12">
-          <AdminAuthFeedback tone="error" message={error} />
+          <AdminAuthFeedback tone="error" message={error ?? transportError} />
         </div>
 
         <Button
           className="h-12 w-full rounded-xl text-sm font-semibold shadow-[0_14px_30px_-18px_rgba(37,99,235,0.68)]"
-          disabled={loading || !username || !password}
+          disabled={loading || !username || !password || Boolean(transportError)}
           type="submit"
         >
           {loading ? t('auth.login.submitting') : t('auth.login.submit')}
@@ -161,4 +199,3 @@ export function AdminLoginPage(): React.ReactNode {
     </AdminAuthShell>
   );
 }
-

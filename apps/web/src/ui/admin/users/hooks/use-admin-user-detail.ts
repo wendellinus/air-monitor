@@ -2,11 +2,13 @@ import React from 'react';
 import { useBeforeUnload, useBlocker, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import type {
+  AdminResetPasswordRequest,
   AdminUpdateUserDetailRequest,
   AdminUserDetailData,
 } from '@air-monitor/shared';
 
 import { api } from '@/shared/api';
+import { encryptNewPasswordTransport } from '@/shared/http/password-protection';
 import type { ApiResponse } from '@/shared/types';
 import { useAdminAccess } from '@/ui/admin/layout/access-context';
 import {
@@ -386,9 +388,10 @@ export function useAdminUserDetail(input: UseAdminUserDetailInput): UseAdminUser
 
     setResetting(true);
     try {
-      await api.post(`/admin/users/${resetTarget.id}/reset-password`, {
-        newPassword: newPassword.trim(),
-      });
+      const payload: AdminResetPasswordRequest = {
+        ...(await encryptNewPasswordTransport(newPassword.trim())),
+      };
+      await api.post(`/admin/users/${resetTarget.id}/reset-password`, payload);
       toast.success(t('admin.users.reset.success', { username: resetTarget.username }));
       closeResetDialog();
     } catch (error: unknown) {
