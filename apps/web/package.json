@@ -4,7 +4,9 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
+    "predev": "pnpm --filter @air-monitor/shared build",
     "dev": "vite",
+    "prebuild": "pnpm --filter @air-monitor/shared build",
     "build": "tsc -b && vite build",
     "preview": "vite preview"
   },

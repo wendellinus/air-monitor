@@ -8,6 +8,10 @@
 
 如果你是第一次接手这个项目，建议直接按下面的“5 分钟启动”步骤操作。
 
+更完整的从零安装说明见：
+
+- [`docs/1. 环境安装与项目启动.md`](./docs/1.%20环境安装与项目启动.md)
+
 ## 项目结构
 
 ```text
@@ -40,13 +44,34 @@ air-monitor/
 
 以下命令都在仓库根目录执行。
 
-### 1. 安装依赖
+### 1. 一键启动
+
+如果你已经准备好环境变量，或者愿意先使用仓库默认模板，直接执行这一条就够了：
+
+```bash
+pnpm bootstrap:dev
+```
+
+这个命令会自动完成：
+
+- 启动 Postgres 和 Redis
+- 等待容器就绪
+- 按 `apps/api/.env` 中的 `DATABASE_URL` 自动创建数据库
+- 生成 Prisma Client
+- 执行 Prisma migrations
+- 执行 seed，初始化后台账号
+- 构建 `packages/shared`
+- 启动 API、Web 和 shared watch
+
+如果你想手动分步操作，再看下面的步骤。
+
+### 2. 安装依赖
 
 ```bash
 pnpm install
 ```
 
-### 2. 启动数据库和 Redis
+### 3. 启动数据库和 Redis
 
 推荐直接使用仓库自带的 Docker Compose：
 
@@ -65,7 +90,7 @@ pnpm dev:infra
 docker compose ps
 ```
 
-### 3. 配置后端环境变量
+### 4. 配置后端环境变量
 
 复制环境变量模板：
 
@@ -105,7 +130,7 @@ PROVIDER_ACCOUNT_SYNC_ENABLED=false
 - `INITIAL_ADMIN_*` / `INITIAL_OPERATOR_*` 用于初始化后台账号。
 - 第一次本地启动建议把 3 个定时任务都关掉，避免因为第三方服务未配置而反复打印告警日志。
 
-### 4. 初始化数据库
+### 5. 初始化数据库
 
 先执行 Prisma 迁移：
 
@@ -183,6 +208,7 @@ VITE_AMAP_SECURITY_JS_CODE=你的高德安全密钥
 ### 根目录命令
 
 ```bash
+pnpm bootstrap:dev      # 一键完成 infra、建库、迁移、seed、shared 构建和启动
 pnpm dev                # 同时启动 API 和 Web
 pnpm dev:api            # 只启动 API
 pnpm dev:web            # 只启动 Web
@@ -262,4 +288,3 @@ pnpm prisma:seed
 - 包管理器统一使用 `pnpm`
 - API 路径前缀保持为 `/api/v1`
 - API 响应格式保持为 `{ code, msg, data }`
-

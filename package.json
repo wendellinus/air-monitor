@@ -9,9 +9,10 @@
   },
   "scripts": {
     "setup": "pnpm run prisma:migrate:dev",
-    "dev": "pnpm -r --parallel dev",
-    "dev:api": "pnpm --filter @air-monitor/api dev",
-    "dev:web": "pnpm --filter @air-monitor/web dev",
+    "bootstrap:dev": "bash ./scripts/bootstrap-dev.sh",
+    "dev": "pnpm --filter @air-monitor/shared build && pnpm -r --parallel dev",
+    "dev:api": "pnpm --filter @air-monitor/shared build && pnpm --filter @air-monitor/api dev",
+    "dev:web": "pnpm --filter @air-monitor/shared build && pnpm --filter @air-monitor/web dev",
     "dev:infra": "docker compose up -d postgres redis",
     "dev:infra:down": "docker compose down",
     "build": "pnpm -r --workspace-concurrency=1 build",
@@ -23,6 +24,7 @@
     "test:e2e": "pnpm --filter @air-monitor/api test:e2e",
     "prisma:generate": "pnpm --filter @air-monitor/api prisma:generate",
     "prisma:migrate:dev": "pnpm --filter @air-monitor/api prisma:migrate:dev",
+    "prisma:migrate:deploy": "pnpm --filter @air-monitor/api prisma:migrate:deploy",
     "prisma:seed": "pnpm --filter @air-monitor/api prisma:seed",
     "prisma:studio": "pnpm --filter @air-monitor/api prisma:studio"
   }

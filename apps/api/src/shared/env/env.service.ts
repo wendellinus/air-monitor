@@ -1,6 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { z } from 'zod';
 
+const optionalUrl = z.preprocess((value: unknown) => {
+  if (typeof value === 'string' && value.trim() === '') {
+    return undefined;
+  }
+  return value;
+}, z.string().url().optional());
+
 const envSchema = z.object({
   PORT: z.string().optional(),
 
@@ -13,7 +20,7 @@ const envSchema = z.object({
 
   REDIS_URL: z.string().min(1).default('redis://127.0.0.1:6379'),
 
-  QWEATHER_HOST: z.string().url().optional(),
+  QWEATHER_HOST: optionalUrl,
   QWEATHER_API_KEY: z.string().optional(),
   QWEATHER_PUBLIC_ID: z.string().optional(),
   QWEATHER_PROJECT_ID: z.string().optional(),
@@ -30,7 +37,7 @@ const envSchema = z.object({
   PROVIDER_ACCOUNT_SYNC_ENABLED: z.string().optional(),
   PROVIDER_ACCOUNT_SYNC_SCHEDULE: z.string().optional(),
   AMAP_ACCOUNT_MODE: z.enum(['mock', 'live']).optional(),
-  AMAP_ACCOUNT_API_BASE: z.string().url().optional(),
+  AMAP_ACCOUNT_API_BASE: optionalUrl,
   AMAP_ACCOUNT_API_KEY: z.string().optional(),
 });
 
