@@ -1,7 +1,6 @@
+import type { MePermissionsData, RolePermissionTreeData } from '@air-monitor/shared';
 import { Body, Controller, Get, Param, Put, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
-
-import type { MePermissionsData, RolePermissionTreeData } from '@air-monitor/shared';
 
 import { Permissions } from '../../shared/authz/permissions.decorator';
 import { PermissionsGuard } from '../../shared/authz/permissions.guard';
@@ -31,7 +30,6 @@ export class PermissionController {
     };
   }
 
-  @Roles('admin', 'operator')
   @Permissions('permissions.view')
   @Get('admin/permissions/roles/:role')
   async roleTree(@Param() dto: RoleParamDto): Promise<RolePermissionTreeData> {

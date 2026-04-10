@@ -1,5 +1,4 @@
 const PROFILE_SETTINGS_PATH = '/admin/profile-settings';
-const LOGIN_PATH = '/admin/login';
 
 type AdminRouteRule = {
   path: string;
@@ -45,7 +44,7 @@ export function findFirstAccessibleAdminPath(permissionKeys: string[] | null): s
     }
   }
 
-  return LOGIN_PATH;
+  return PROFILE_SETTINGS_PATH;
 }
 
 export function getProfileSettingsPath(): string {

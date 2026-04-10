@@ -1,12 +1,9 @@
+import type { NoticeAdminListData, NoticeItem, OkResponseData } from '@air-monitor/shared';
 import { Body, Controller, Get, Param, ParseIntPipe, Post, Put, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 
-import type { NoticeAdminListData, NoticeItem, OkResponseData } from '@air-monitor/shared';
-
 import { Permissions } from '../../shared/authz/permissions.decorator';
 import { PermissionsGuard } from '../../shared/authz/permissions.guard';
-import { Roles } from '../../shared/authz/roles.decorator';
-import { RolesGuard } from '../../shared/authz/roles.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import type { JwtUser } from '../auth/types';
@@ -14,13 +11,12 @@ import type { JwtUser } from '../auth/types';
 import { AdminCreateNoticeDto } from './dto/admin-create-notice.dto';
 import { AdminNoticeListQueryDto } from './dto/admin-notice-list-query.dto';
 import { AdminUpdateNoticeDto } from './dto/admin-update-notice.dto';
-import { NoticeService } from './notice.service';
 import type { NoticeEntity } from './notice.repository';
+import { NoticeService } from './notice.service';
 
 @ApiTags('admin-notice')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
-@Roles('admin', 'operator')
+@UseGuards(JwtAuthGuard, PermissionsGuard)
 @Controller('admin/notices')
 export class AdminNoticeController {
   constructor(private readonly notices: NoticeService) {}

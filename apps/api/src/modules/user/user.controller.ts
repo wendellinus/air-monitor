@@ -1,23 +1,18 @@
+import type { CityItem, DashboardLayoutData, MeProfileData, MeResponseData, UserListData } from '@air-monitor/shared';
 import { Body, Controller, Delete, Get, Param, Post, Put, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 
-import type { CityItem, MeResponseData, UserListData } from '@air-monitor/shared';
-import type { DashboardLayoutData } from '@air-monitor/shared';
-import type { MeProfileData } from '@air-monitor/shared';
-
 import { Permissions } from '../../shared/authz/permissions.decorator';
 import { PermissionsGuard } from '../../shared/authz/permissions.guard';
-import { Roles } from '../../shared/authz/roles.decorator';
-import { RolesGuard } from '../../shared/authz/roles.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import type { JwtUser } from '../auth/types';
 
-import { SearchUserQueryDto } from './dto/search-user-query.dto';
-import { FavoriteCityDto } from './dto/favorite-city.dto';
 import { FavoriteCityParamDto } from './dto/favorite-city-param.dto';
-import { UpdateLocaleDto } from './dto/update-locale.dto';
+import { FavoriteCityDto } from './dto/favorite-city.dto';
+import { SearchUserQueryDto } from './dto/search-user-query.dto';
 import { UpdateDashboardLayoutDto } from './dto/update-dashboard-layout.dto';
+import { UpdateLocaleDto } from './dto/update-locale.dto';
 import { UpdateMyProfileDto } from './dto/update-my-profile.dto';
 import { UserService } from './user.service';
 
@@ -107,8 +102,7 @@ export class UserController {
   }
 
   @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
-  @Roles('admin', 'operator')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
   @Permissions('users.view')
   @Get('users')
   async list(@Query() q: SearchUserQueryDto): Promise<UserListData> {
@@ -121,8 +115,7 @@ export class UserController {
   }
 
   @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
-  @Roles('admin', 'operator')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
   @Permissions('users.view')
   @Get('users/search')
   async search(@Query() q: SearchUserQueryDto): Promise<UserListData> {

@@ -17,7 +17,6 @@ import { SystemService } from './system.service';
 export class SystemController {
   constructor(private readonly system: SystemService) {}
 
-  @Roles('admin', 'operator', 'user')
   @Permissions('system.view')
   @ApiOperation({ summary: 'Get system config (admin)' })
   @Get('config')

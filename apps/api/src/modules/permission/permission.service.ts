@@ -1,6 +1,5 @@
-import { Inject, Injectable } from '@nestjs/common';
-
 import type { PermissionTreeNode, RolePermissionTreeData } from '@air-monitor/shared';
+import { Inject, Injectable } from '@nestjs/common';
 
 import { AppError } from '../../shared/app-error';
 import type { UserRole } from '../../shared/authz/user-role';
@@ -72,12 +71,11 @@ const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, string[]> = {
     'system.view',
     'apiQuota.view',
   ],
-  user: ['dashboard.view', 'cities.view', 'favorites.view', 'favorites.delete'],
+  user: [],
 };
 
 const ROLE_REQUIRED_ADDITIONS: Partial<Record<UserRole, string[]>> = {
   operator: ['users.profile.update'],
-  user: ['favorites.view', 'favorites.delete'],
 };
 
 export type UserPermissionDetail = {

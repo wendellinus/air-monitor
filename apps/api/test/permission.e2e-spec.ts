@@ -87,16 +87,31 @@ describe('Permission (e2e)', () => {
     expect(operatorReadTree.body.code).toBe(40100);
   });
 
-  it('lets user role access self favorites but not admin favorites management', async () => {
+  it('keeps self favorites open without admin permissions and unlocks admin favorites after an explicit grant', async () => {
+    const adminUsername = `perm_adm_${rand8()}`.slice(0, 20);
     const username = `perm_usr_${rand8()}`.slice(0, 20);
+    const adminPassword = 'admin123';
     const password = 'user12345';
+    const adminPasswordHash = await bcrypt.hash(adminPassword, 10);
     const passwordHash = await bcrypt.hash(password, 10);
+
+    const admin = await t.prisma.user.create({
+      data: { username: adminUsername, passwordHash: adminPasswordHash, isActive: true, role: 'admin' },
+      select: { id: true },
+    });
+    createdUserIds.push(admin.id);
 
     const user = await t.prisma.user.create({
       data: { username, passwordHash, isActive: true, role: 'user' },
       select: { id: true },
     });
     createdUserIds.push(user.id);
+
+    const loginAdmin = await request(t.app.getHttpServer())
+      .post('/api/v1/login')
+      .send({ username: adminUsername, password: adminPassword });
+    expect(loginAdmin.body.code).toBe(0);
+    const adminToken: string = loginAdmin.body.data.token as string;
 
     const login = await request(t.app.getHttpServer())
       .post('/api/v1/login')
@@ -108,8 +123,8 @@ describe('Permission (e2e)', () => {
       .get('/api/v1/user/me/permissions')
       .set('Authorization', `Bearer ${token}`);
     expect(myPermissions.body.code).toBe(0);
-    expect(myPermissions.body.data.permissions).toContain('favorites.view');
-    expect(myPermissions.body.data.permissions).toContain('favorites.delete');
+    expect(myPermissions.body.data.permissions).not.toContain('favorites.view');
+    expect(myPermissions.body.data.permissions).not.toContain('favorites.delete');
 
     const adminFavorites = await request(t.app.getHttpServer())
       .get('/api/v1/admin/users/favorites/cities?page=1&pageSize=10')
@@ -121,6 +136,31 @@ describe('Permission (e2e)', () => {
       .set('Authorization', `Bearer ${token}`);
     expect(selfFavorites.body.code).toBe(0);
     expect(Array.isArray(selfFavorites.body.data)).toBe(true);
+
+    const originalTree = await request(t.app.getHttpServer())
+      .get('/api/v1/admin/permissions/roles/user')
+      .set('Authorization', `Bearer ${adminToken}`);
+    expect(originalTree.body.code).toBe(0);
+    const originalKeys: string[] = originalTree.body.data.selectedKeys as string[];
+
+    try {
+      const updateRoleTree = await request(t.app.getHttpServer())
+        .put('/api/v1/admin/permissions/roles/user')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ permissionKeys: ['favorites.view'] });
+      expect(updateRoleTree.body.code).toBe(0);
+
+      const grantedFavorites = await request(t.app.getHttpServer())
+        .get('/api/v1/admin/users/favorites/cities?page=1&pageSize=10')
+        .set('Authorization', `Bearer ${token}`);
+      expect(grantedFavorites.body.code).toBe(0);
+      expect(Array.isArray(grantedFavorites.body.data.list)).toBe(true);
+    } finally {
+      await request(t.app.getHttpServer())
+        .put('/api/v1/admin/permissions/roles/user')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ permissionKeys: originalKeys });
+    }
   });
 
   it('supports admin user detail update, per-user permission reduction, and soft delete', async () => {

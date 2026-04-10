@@ -1,7 +1,6 @@
+import type { AdminFavoriteCityListData, AdminUserDetailData } from '@air-monitor/shared';
 import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
-
-import type { AdminFavoriteCityListData, AdminUserDetailData } from '@air-monitor/shared';
 
 import { Permissions } from '../../shared/authz/permissions.decorator';
 import { PermissionsGuard } from '../../shared/authz/permissions.guard';
@@ -30,14 +29,12 @@ export class AdminUserController {
     private readonly passwordCrypto: AuthPasswordCryptoService,
   ) {}
 
-  @Roles('admin', 'operator')
   @Permissions('favorites.view')
   @Get('favorites/cities')
   async listFavorites(@Query() query: AdminFavoriteQueryDto): Promise<AdminFavoriteCityListData> {
     return this.users.getAdminFavoriteCities(query.page, query.pageSize, query.keyword);
   }
 
-  @Roles('admin', 'operator')
   @Permissions('favorites.delete')
   @Delete('favorites/cities/:userId/:cityId')
   async removeFavorite(
@@ -48,7 +45,6 @@ export class AdminUserController {
     return { ok: true };
   }
 
-  @Roles('admin', 'operator')
   @Permissions('users.create')
   @Post()
   async create(
@@ -70,14 +66,12 @@ export class AdminUserController {
     });
   }
 
-  @Roles('admin', 'operator')
   @Permissions('users.view')
   @Get(':id')
   async detail(@Param('id', ParseIntPipe) id: number): Promise<AdminUserDetailData> {
     return this.users.getAdminUserDetail(id);
   }
 
-  @Roles('admin', 'operator')
   @Permissions('users.view')
   @Patch(':id')
   async updateDetail(
@@ -88,7 +82,6 @@ export class AdminUserController {
     return this.users.updateAdminUserDetail(user.userId, user.role, id, dto);
   }
 
-  @Roles('admin', 'operator')
   @Permissions('users.status.update')
   @Patch(':id/status')
   async setStatus(@Param('id', ParseIntPipe) id: number, @Body() dto: SetUserStatusDto): Promise<unknown> {
@@ -96,7 +89,6 @@ export class AdminUserController {
     return { ok: true };
   }
 
-  @Roles('admin', 'operator')
   @Permissions('users.password.reset')
   @Post(':id/reset-password')
   async resetPassword(@Param('id', ParseIntPipe) id: number, @Body() dto: ResetPasswordDto): Promise<unknown> {

@@ -1,11 +1,10 @@
-import { Body, Controller, Get, Post, Query, UseGuards } from '@nestjs/common';
-import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
-
 import type {
   ProviderOverviewData,
   ProviderRefreshData,
   ProviderTrendData,
 } from '@air-monitor/shared';
+import { Body, Controller, Get, Post, Query, UseGuards } from '@nestjs/common';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 
 import { Permissions } from '../../shared/authz/permissions.decorator';
 import { PermissionsGuard } from '../../shared/authz/permissions.guard';
@@ -24,14 +23,12 @@ import { ProviderAccountService } from './provider-account.service';
 export class ProviderAccountController {
   constructor(private readonly account: ProviderAccountService) {}
 
-  @Roles('admin', 'operator')
   @Permissions('apiQuota.view')
   @Get('overview')
   async overview(): Promise<ProviderOverviewData> {
     return this.account.getOverview();
   }
 
-  @Roles('admin', 'operator')
   @Permissions('apiQuota.view')
   @Get('trends')
   async trends(@Query() query: ProviderAccountQueryDto): Promise<ProviderTrendData> {
